@@ -12,14 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def get_gemini_client():
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    if not api_key:
-        raise ValueError(
-            "GEMINI_API_KEY is missing. Create a .env file in the project root "
-            "and set GEMINI_API_KEY=your_key_here."
-        )
-    return genai.Client(api_key=api_key)
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", ""))
 
 # ─── System Prompts ────────────────────────────────────────────────────────────
 
@@ -145,7 +138,6 @@ class AITutorAgent:
 
         chat_history = self._format_history(history)
 
-        client = get_gemini_client()
         chat = client.chats.create(
             model=self.model_name,
             history=chat_history
@@ -170,7 +162,6 @@ Respond ONLY with a JSON array (no markdown, no explanation):
 Questions should test real understanding, not just memorization.
 Mix difficulty levels. Keep answers concise (1-3 sentences)."""
 
-        client = get_gemini_client()
         response = client.models.generate_content(model=self.model_name, contents=prompt)
         text = response.text.strip()
         # Strip markdown code fences if present
@@ -196,7 +187,6 @@ Respond ONLY with JSON (no markdown):
 
 Be generous — partial credit if they got the core idea. Score 1.0 = perfect, 0.5 = partial, 0.0 = wrong."""
 
-        client = get_gemini_client()
         response = client.models.generate_content(model=self.model_name, contents=prompt)
         text = response.text.strip()
         text = re.sub(r"```json\s*|\s*```", "", text).strip()
@@ -222,7 +212,6 @@ Be generous — partial credit if they got the core idea. Score 1.0 = perfect, 0
         full_prompt = f"{system_ctx}\n\n{reteach}"
 
         chat_history = self._format_history(history)
-        client = get_gemini_client()
         chat = client.chats.create(model=self.model_name, history=chat_history)
         response = chat.send_message(full_prompt)
         return response.text
@@ -230,7 +219,6 @@ Be generous — partial credit if they got the core idea. Score 1.0 = perfect, 0
     def generate_journey_summary(self, progress_data: dict) -> str:
         """Generate an end-of-session journey summary."""
         prompt = JOURNEY_SUMMARY_PROMPT.format(progress_data=json.dumps(progress_data, indent=2))
-        client = get_gemini_client()
         response = client.models.generate_content(model=self.model_name, contents=prompt)
         return response.text
 
