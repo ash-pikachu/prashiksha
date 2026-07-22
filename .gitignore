@@ -1,0 +1,19 @@
+# Local secrets and machine-specific environment files
+.env
+.env.*
+!.env.example
+
+# Python generated files
+__pycache__/
+*.py[cod]
+
+# Local virtual environments
+.venv/
+venv/
+
+# Local logs
+*.log
+
+# OS/editor noise
+Thumbs.db
+.DS_Store
