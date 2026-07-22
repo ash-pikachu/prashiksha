@@ -1,0 +1,27 @@
+{% extends "app_shell.html" %}
+{% block title %}Choose Topic | Prashiksha{% endblock %}
+{% block content %}
+<section class="page-head">
+    <p class="eyebrow">Welcome back, {{ state.user.name }}</p>
+    <h1>What should we learn today?</h1>
+    <p class="page-copy">Pick a topic and Prashiksha will turn it into a focused class with explanations, examples, practice, and flashcards.</p>
+</section>
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+<form method="post" class="topic-form">
+    <input name="topic" type="text" placeholder="Recursion in Python, Photosynthesis, French Revolution..." autofocus>
+    <button class="primary-btn" type="submit"><i data-lucide="arrow-right"></i> Let's Go</button>
+</form>
+<section class="inside-highlights">
+    <div><i data-lucide="sparkles"></i><strong>Adaptive</strong><span>Lessons adjust to your quiz performance.</span></div>
+    <div><i data-lucide="languages"></i><strong>Multilingual</strong><span>Learn in the language you selected.</span></div>
+    <div><i data-lucide="layers"></i><strong>Structured</strong><span>Topics become clear steps and subtopics.</span></div>
+</section>
+<section class="quick-grid">
+    {% for topic in quick_topics %}
+        <form method="post">
+            <input type="hidden" name="topic" value="{{ topic }}">
+            <button class="topic-tile" type="submit"><i data-lucide="notebook-tabs"></i>{{ topic }}</button>
+        </form>
+    {% endfor %}
+</section>
+{% endblock %}

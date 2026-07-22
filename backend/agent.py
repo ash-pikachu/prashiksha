@@ -153,27 +153,100 @@ class AITutorAgent:
 ---
 
 Generate exactly {count} flashcard questions to test understanding.
+Provide a mixture of Multiple Choice Questions (MCQ) and open-ended text questions (e.g., 2-3 of each).
+
 Respond ONLY with a JSON array (no markdown, no explanation):
 [
-  {{"question": "...", "answer": "...", "topic": "{topic}"}},
-  ...
+  {{
+    "type": "mcq",
+    "question": "question text",
+    "options": ["A) option 1", "B) option 2", "C) option 3", "D) option 4"],
+    "answer": "A",
+    "explanation": "why A is correct",
+    "topic": "{topic}"
+  }},
+  {{
+    "type": "text",
+    "question": "question text",
+    "answer": "model answer",
+    "topic": "{topic}"
+  }}
 ]
 
-Questions should test real understanding, not just memorization.
-Mix difficulty levels. Keep answers concise (1-3 sentences)."""
+Rules:
+1. Return a JSON array of objects.
+2. For MCQ questions, specify "type": "mcq", include "options" array with labels A) to D), "answer" should be exactly the correct letter choice ("A", "B", "C", or "D"), and "explanation" containing the correct answer breakdown.
+3. For text questions, specify "type": "text", and "answer" should contain a concise reference explanation.
+4. Keep questions challenging but clear.
+"""
 
         response = client.models.generate_content(model=self.model_name, contents=prompt)
         text = response.text.strip()
         # Strip markdown code fences if present
         text = re.sub(r"```json\s*|\s*```", "", text).strip()
         try:
-            return json.loads(text)
+            cards = json.loads(text)
         except json.JSONDecodeError:
             # Fallback: extract JSON array pattern
             match = re.search(r'\[.*\]', text, re.DOTALL)
             if match:
-                return json.loads(match.group())
-            return []
+                try:
+                    cards = json.loads(match.group())
+                except Exception:
+                    cards = []
+            else:
+                cards = []
+        
+        # Post-process cards to ensure type safety and randomize options
+        import random
+        for card in cards:
+            if not isinstance(card, dict):
+                continue
+            if "type" not in card:
+                if "options" in card and isinstance(card["options"], list) and len(card["options"]) > 0:
+                    card["type"] = "mcq"
+                else:
+                    card["type"] = "text"
+            
+            # Shuffle MCQ options and map the correct letter key
+            if card.get("type") == "mcq" and isinstance(card.get("options"), list) and len(card["options"]) == 4:
+                correct_letter = card.get("answer", "").strip().upper()
+                correct_idx = -1
+                
+                # Match by A, B, C, D letter
+                letter_match = re.match(r"^([A-D])", correct_letter)
+                if letter_match:
+                    correct_idx = ord(letter_match.group(1)) - ord('A')
+                else:
+                    # Match correct answer text in existing options
+                    for i, opt in enumerate(card["options"]):
+                        clean_opt = re.sub(r"^[A-D]\)\s*", "", opt).strip().lower()
+                        if correct_letter.lower() in clean_opt or clean_opt in correct_letter.lower():
+                            correct_idx = i
+                            break
+                
+                if 0 <= correct_idx < len(card["options"]):
+                    # Extract clean option text (stripping 'A) ' label)
+                    clean_opts = [re.sub(r"^[A-D]\)\s*", "", opt).strip() for opt in card["options"]]
+                    
+                    # Create zipped list to track indices during shuffle
+                    zipped = list(enumerate(clean_opts))
+                    random.shuffle(zipped)
+                    
+                    new_options = []
+                    new_correct_letter = "A"
+                    for new_idx, (old_idx, text) in enumerate(zipped):
+                        letter = chr(ord('A') + new_idx)
+                        new_options.append(f"{letter}) {text}")
+                        if old_idx == correct_idx:
+                            new_correct_letter = letter
+                    
+                    card["options"] = new_options
+                    card["answer"] = new_correct_letter
+
+        # Randomize the sequence order of questions
+        random.shuffle(cards)
+        return cards
 
     def evaluate_answer(self, question: str, correct_answer: str, user_answer: str) -> dict:
         """Evaluate a student's flashcard answer."""

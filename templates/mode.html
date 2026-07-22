@@ -1,0 +1,35 @@
+{% extends "app_shell.html" %}
+{% block title %}Learning Mode | Prashiksha{% endblock %}
+{% block content %}
+<section class="page-head feature-choice-head">
+    <div>
+        <p class="eyebrow">Choose Learning Mode</p>
+        <h1>{{ state.topic }}</h1>
+        <p class="page-copy">Pick the style for this class. Deep Explanation gives the most complete ordered lesson.</p>
+    </div>
+    <div class="mini-lesson-card">
+        <i data-lucide="book-marked"></i>
+        <span>Topic ready</span>
+    </div>
+</section>
+{% if state.prev_session_id %}
+<div class="resume-strip">
+    <span>You have studied this before.</span>
+    <form method="post">
+        <input type="hidden" name="action" value="resume">
+        <button class="ghost-btn" type="submit"><i data-lucide="history"></i> Resume Previous Session</button>
+    </form>
+</div>
+{% endif %}
+<section class="mode-grid">
+    {% for key, item in learning_types.items() %}
+    <form method="post" class="mode-card">
+        <input type="hidden" name="response_type" value="{{ key }}">
+        <i data-lucide="{{ item.icon }}"></i>
+        <h2>{{ item.label }}</h2>
+        <p>{{ item.desc }}</p>
+        <button class="secondary-btn" type="submit">Choose mode</button>
+    </form>
+    {% endfor %}
+</section>
+{% endblock %}

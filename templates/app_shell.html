@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="app-layout">
+    <aside class="sidebar">
+        <a class="side-brand" href="{{ url_for('topic') }}">
+            <div class="brand-mark"><i data-lucide="graduation-cap"></i></div>
+            <span>Prashiksha</span>
+        </a>
+        <div class="student-chip">
+            <i data-lucide="user-round"></i>
+            <div>
+                <strong>{{ state.user.name }}</strong>
+                <small>{{ languages.get(state.language, "English") }}</small>
+            </div>
+        </div>
+        {% set level = state.understanding_level %}
+        {% if level < 0.35 %}
+            {% set level_label = "Newbie" %}
+            {% set level_hint = "Building foundations" %}
+            {% set level_icon = "sprout" %}
+        {% elif level < 0.7 %}
+            {% set level_label = "Average" %}
+            {% set level_hint = "Growing steadily" %}
+            {% set level_icon = "book-open-check" %}
+        {% else %}
+            {% set level_label = "Expert" %}
+            {% set level_hint = "Strong mastery" %}
+            {% set level_icon = "badge-check" %}
+        {% endif %}
+        {% if state.topic %}
+            <div class="side-section">
+                <span>Current Class</span>
+                <strong>{{ state.topic }}</strong>
+                <small>{{ state.response_type or "Choose a mode" }}</small>
+            </div>
+        {% endif %}
+        <div class="mastery level-{{ level_label|lower }}">
+            <div class="mastery-top">
+                <span>Understanding</span>
+                <strong>{{ (level * 100)|round }}%</strong>
+            </div>
+            <div class="level-badge">
+                <i data-lucide="{{ level_icon }}"></i>
+                <div>
+                    <strong>{{ level_label }}</strong>
+                    <small>{{ level_hint }}</small>
+                </div>
+            </div>
+            <div class="meter"><span style="width: {{ (level * 100)|round }}%"></span></div>
+            <div class="level-scale">
+                <span>Newbie</span>
+                <span>Average</span>
+                <span>Expert</span>
+            </div>
+        </div>
+        <div class="sidebar-actions">
+            <form method="post" action="{{ url_for('new_topic') }}">
+                <button class="ghost-btn" type="submit"><i data-lucide="book-open"></i> New Topic</button>
+            </form>
+            <form method="post" action="{{ url_for('logout') }}">
+                <button class="ghost-btn" type="submit"><i data-lucide="log-out"></i> Logout</button>
+            </form>
+        </div>
+    </aside>
+    <main class="content">
+        <a class="notes-fab" href="{{ url_for('notes', back=request.path) }}" title="Open notes" aria-label="Open notes">
+            <i data-lucide="notebook-pen"></i>
+            <span>{{ state.notes|length if state.notes else 0 }}</span>
+        </a>
+        {% block content %}{% endblock %}
+    </main>
+</div>
+{% endblock %}

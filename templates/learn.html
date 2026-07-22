@@ -1,0 +1,51 @@
+{% extends "app_shell.html" %}
+{% block title %}Learn | Prashiksha{% endblock %}
+{% block content %}
+<section class="learn-head compact-head">
+    <div class="head-left">
+        <span class="eyebrow font-small">{{ state.response_type }} mode</span>
+        <h1 class="font-medium">{{ state.topic }}</h1>
+    </div>
+    <div class="head-actions">
+        <button class="ghost-btn" id="quizStart"><i data-lucide="cards"></i> Flashcards</button>
+        <a class="ghost-link" href="{{ url_for('journey') }}"><i data-lucide="flag"></i> End Session</a>
+    </div>
+</section>
+
+{% if state.roadmap_data %}
+<section class="roadmap-box" id="roadmapBox">
+    {% set steps = state.roadmap_data.get("steps", []) %}
+    <div>
+        <strong>Roadmap Progress</strong>
+        <span>Step {{ state.current_roadmap_step + 1 }} of {{ steps|length }}</span>
+    </div>
+    <div class="meter"><span style="width: {{ (state.current_roadmap_step / (steps|length if steps else 1) * 100)|round }}%"></span></div>
+    {% if state.current_roadmap_step < steps|length %}
+        <button class="secondary-btn" id="completeRoadmap">Complete: {{ steps[state.current_roadmap_step].title }}</button>
+    {% endif %}
+</section>
+{% endif %}
+
+<section class="chat-window" id="chatWindow">
+    {% for msg in state.chat_history %}
+        <article class="message {{ msg.role }}">{{ msg.content }}</article>
+    {% endfor %}
+</section>
+<button class="selection-note-btn" id="selectionNoteBtn" type="button">
+    <i data-lucide="notebook-pen"></i>
+    Save to Notes
+</button>
+
+<form class="chat-form" id="chatForm">
+    <input id="chatInput" type="text" placeholder="Ask a follow-up, request an example, or type 'test me'..." autocomplete="off">
+    <button class="primary-btn" type="submit"><i data-lucide="send"></i> Send</button>
+</form>
+
+<dialog class="quiz-dialog" id="quizDialog">
+    <div class="quiz-head">
+        <h2>Flashcard Check</h2>
+        <button class="icon-btn" id="closeQuiz" type="button"><i data-lucide="x"></i></button>
+    </div>
+    <div id="quizBody"></div>
+</dialog>
+{% endblock %}

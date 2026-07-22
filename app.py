@@ -1,983 +1,736 @@
 """
-app.py - AI Tutor Hub | Main Streamlit Application
-Run: streamlit run app.py
+app.py - Prashiksha Flask application
+Run: flask --app app run --debug
 """
-import streamlit as st
-import time
-import sys
+from __future__ import annotations
+
 import os
+import sys
+import uuid
+from datetime import datetime
+from functools import wraps
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
 sys.path.insert(0, os.path.dirname(__file__))
 
 from backend.agent import AITutorAgent
 from backend.session_manager import SessionManager
-from backend.voice import VoiceModule
-from backend.translator import TranslationModule, SUPPORTED_LANGUAGES
+from backend.translator import SUPPORTED_LANGUAGES, TranslationModule
 
-# ─── Page Config ──────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="AI Tutor Hub",
-    page_icon="🎓",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+load_dotenv()
 
-# ─── Custom CSS ───────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-    /* Main theme */
-    .stApp { background: #0f0f1a; }
-    .main .block-container { padding: 1.5rem 2rem; max-width: 1100px; }
+app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", os.getenv("SECRET_KEY", "prashiksha-dev-secret"))
 
-    /* Sidebar */
-    [data-testid="stSidebar"] { background: #161625; border-right: 1px solid #2a2a40; }
-
-    /* Chat bubbles */
-    .chat-user {
-        background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        color: white; padding: 14px 18px; border-radius: 18px 18px 4px 18px;
-        margin: 8px 0 8px 15%; font-size: 15px; line-height: 1.6;
-        box-shadow: 0 4px 15px rgba(99,102,241,0.3);
-    }
-    .chat-bot {
-        background: #1e1e30; color: #e2e8f0; padding: 14px 18px;
-        border-radius: 18px 18px 18px 4px; margin: 8px 15% 8px 0;
-        font-size: 15px; line-height: 1.6; border: 1px solid #2a2a40;
-    }
-    .chat-system {
-        background: #1a2e1a; color: #86efac; padding: 10px 16px;
-        border-radius: 12px; margin: 6px 20%; font-size: 14px;
-        border: 1px solid #16a34a40; text-align: center;
-    }
-
-    /* Cards */
-    .metric-card {
-        background: #1e1e30; border: 1px solid #2a2a40;
-        border-radius: 12px; padding: 16px; text-align: center;
-    }
-    .metric-value { font-size: 28px; font-weight: 700; color: #818cf8; }
-    .metric-label { font-size: 13px; color: #94a3b8; margin-top: 4px; }
-
-    /* Flashcard */
-    .flashcard {
-        background: #1e1e30; border: 2px solid #6366f1;
-        border-radius: 16px; padding: 24px; margin: 12px 0;
-        text-align: center; min-height: 120px;
-    }
-    .flashcard-question { font-size: 18px; color: #e2e8f0; font-weight: 500; }
-    .flashcard-answer {
-        font-size: 15px; color: #86efac; margin-top: 12px;
-        padding-top: 12px; border-top: 1px solid #2a2a40;
-    }
-
-    /* Roadmap step */
-    .roadmap-step {
-        background: #1e1e30; border-left: 4px solid #6366f1;
-        border-radius: 0 12px 12px 0; padding: 16px; margin: 8px 0;
-    }
-    .roadmap-step.completed { border-left-color: #22c55e; background: #1a2e1a; }
-    .roadmap-step.active    { border-left-color: #f59e0b; background: #2a2214; }
-
-    /* Response type buttons */
-    .stButton > button {
-        background: #1e1e30 !important; color: #c4b5fd !important;
-        border: 1px solid #4c1d95 !important; border-radius: 10px !important;
-        padding: 8px 16px !important; transition: all 0.2s !important;
-    }
-    .stButton > button:hover {
-        background: #6366f1 !important; color: white !important;
-        border-color: #6366f1 !important;
-    }
-
-    /* Score badge */
-    .score-good  { color: #4ade80; font-weight: 700; }
-    .score-ok    { color: #fbbf24; font-weight: 700; }
-    .score-bad   { color: #f87171; font-weight: 700; }
-
-    /* Section headers */
-    .section-header {
-        font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;
-        color: #6366f1; font-weight: 600; margin: 20px 0 10px;
-    }
-
-    /* Hide streamlit chrome */
-    #MainMenu, footer, header { visibility: hidden; }
-</style>
-""", unsafe_allow_html=True)
+LEARNING_STATES: dict[str, dict] = {}
 
 
-# ─── State Initialization ─────────────────────────────────────────────────────
-def init_state():
-    defaults = {
-        "user": None,           # User DB object dict
+LEARNING_TYPES = {
+    "explanation": {
+        "icon": "lightbulb",
+        "label": "Deep Explanation",
+        "desc": "Layered teaching with examples, analogies, and common mistakes.",
+    },
+    "qa": {
+        "icon": "messages-square",
+        "label": "Q&A Mode",
+        "desc": "Ask one focused question and get the concepts behind it.",
+    },
+    "roadmap": {
+        "icon": "map",
+        "label": "Roadmap Journey",
+        "desc": "A step-by-step learning path from first principles to fluency.",
+    },
+    "summary": {
+        "icon": "clipboard-list",
+        "label": "Quick Summary",
+        "desc": "Definitions, key points, and a memorable analogy.",
+    },
+    "practice": {
+        "icon": "pencil-ruler",
+        "label": "Practice Problems",
+        "desc": "Exercises and hints that help you apply the idea.",
+    },
+}
+
+QUICK_TOPICS = ["Machine Learning", "Photosynthesis", "World War II", "Python Basics", "Trigonometry"]
+
+
+def _initial_learning_state() -> dict:
+    return {
+        "user": None,
         "session_id": None,
         "topic": None,
         "response_type": None,
-        "chat_history": [],     # [{"role": "user"|"assistant"|"system", "content": "..."}]
-        "agent": None,
-        "sm": None,
-        "voice": None,
-        "translator": None,
+        "chat_history": [],
         "language": "en",
-        "phase": "login",       # login → setup → type_select → chat → quiz → journey
+        "understanding_level": 0.5,
+        "section_content": "",
         "current_flashcards": [],
         "current_card_idx": 0,
         "quiz_answers": [],
         "roadmap_data": None,
         "current_roadmap_step": 0,
-        "last_response": "",
-        "understanding_level": 0.5,
-        "section_content": "",  # content since last quiz
-        "voice_enabled": True,
-        "quiz_pending": False,
+        "prev_session_id": None,
+        "notes": [],
     }
-    for k, v in defaults.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
-
-init_state()
 
 
-# ─── Helper: get/create SessionManager ────────────────────────────────────────
-def get_sm() -> SessionManager:
-    if st.session_state.sm is None:
-        try:
-            st.session_state.sm = SessionManager()
-        except Exception as e:
-            st.error(f"Database connection failed: {e}\n\nRunning in **demo mode** (no persistence).")
-            st.session_state.sm = None
-    return st.session_state.sm
-
-def get_agent() -> AITutorAgent:
-    if st.session_state.agent is None:
-        st.session_state.agent = AITutorAgent(
-            understanding_level=st.session_state.understanding_level,
-            language=st.session_state.language
-        )
-    return st.session_state.agent
-
-def get_voice() -> VoiceModule:
-    if st.session_state.voice is None:
-        st.session_state.voice = VoiceModule(language=st.session_state.language)
-    return st.session_state.voice
-
-def get_translator() -> TranslationModule:
-    if st.session_state.translator is None:
-        st.session_state.translator = TranslationModule()
-    return st.session_state.translator
+def _state() -> dict:
+    state_id = session.get("learning_state_id")
+    if not state_id:
+        state_id = uuid.uuid4().hex
+        session["learning_state_id"] = state_id
+    if state_id not in LEARNING_STATES:
+        legacy_state = session.pop("learning_state", None)
+        LEARNING_STATES[state_id] = legacy_state or _initial_learning_state()
+        session.modified = True
+    return LEARNING_STATES[state_id]
 
 
-# ─── Helper: save message ─────────────────────────────────────────────────────
-def save_and_display_message(role: str, content: str, display: bool = True):
-    st.session_state.chat_history.append({"role": role, "content": content})
-    sm = get_sm()
-    if sm and st.session_state.session_id:
-        try:
-            sm.save_message(st.session_state.session_id, role, content, st.session_state.language)
-        except Exception:
-            pass  # Demo mode: just keep in memory
-
-def add_system_msg(content: str):
-    st.session_state.chat_history.append({"role": "system", "content": content})
+def _save_state(state: dict):
+    state_id = session.get("learning_state_id")
+    if not state_id:
+        state_id = uuid.uuid4().hex
+        session["learning_state_id"] = state_id
+    LEARNING_STATES[state_id] = state
+    session.modified = True
 
 
-# ─── Helper: play voice ───────────────────────────────────────────────────────
-def maybe_play_voice(text: str):
-    if not st.session_state.voice_enabled:
-        return
-    voice = get_voice()
-    if not voice.is_available:
-        return
+def _reset_state(state: dict | None = None):
+    state_id = uuid.uuid4().hex
+    session["learning_state_id"] = state_id
+    LEARNING_STATES[state_id] = state or _initial_learning_state()
+    session.modified = True
+
+
+def _get_sm() -> SessionManager | None:
     try:
-        audio = voice.text_to_audio_bytes(text)
-        if audio:
-            st.audio(audio, format=f"audio/{voice.audio_format}", autoplay=False)
+        return SessionManager()
     except Exception:
-        pass
+        return None
 
 
-# ─── Sidebar ──────────────────────────────────────────────────────────────────
-def render_sidebar():
-    with st.sidebar:
-        st.markdown("## 🎓 AI Tutor Hub")
-        st.markdown("---")
-
-        if st.session_state.user:
-            st.markdown(f"**👤 {st.session_state.user['name']}**")
-            level = st.session_state.understanding_level
-            level_label = "🌱 Beginner" if level < 0.4 else "📖 Intermediate" if level < 0.7 else "🚀 Advanced"
-            st.markdown(f"Level: {level_label}")
-            st.progress(level)
-
-            st.markdown("---")
-
-            # Language selector
-            st.markdown('<div class="section-header">Language</div>', unsafe_allow_html=True)
-            lang_options = list(SUPPORTED_LANGUAGES.keys())
-            lang_labels  = [SUPPORTED_LANGUAGES[l] for l in lang_options]
-            current_idx  = lang_options.index(st.session_state.language) if st.session_state.language in lang_options else 0
-            selected_lang = st.selectbox("Respond in:", lang_labels, index=current_idx, label_visibility="collapsed")
-            new_lang = lang_options[lang_labels.index(selected_lang)]
-            if new_lang != st.session_state.language:
-                st.session_state.language = new_lang
-                agent = get_agent()
-                if agent:
-                    agent.language = new_lang
-                voice = get_voice()
-                if voice:
-                    voice.set_language(new_lang)
-                sm = get_sm()
-                if sm and st.session_state.user:
-                    try:
-                        sm.update_language(st.session_state.user["id"], new_lang)
-                    except Exception:
-                        pass
-
-            # Voice toggle
-            st.markdown('<div class="section-header">Voice</div>', unsafe_allow_html=True)
-            st.session_state.voice_enabled = st.toggle("🔊 Read responses aloud", value=st.session_state.voice_enabled)
-
-            st.markdown("---")
-
-            # Session info
-            if st.session_state.topic:
-                st.markdown('<div class="section-header">Current Session</div>', unsafe_allow_html=True)
-                st.markdown(f"📚 **{st.session_state.topic}**")
-                st.markdown(f"Mode: `{st.session_state.response_type or 'Not set'}`")
-                messages = [m for m in st.session_state.chat_history if m["role"] in ("user","assistant")]
-                st.markdown(f"Messages: **{len(messages)}**")
-
-            st.markdown("---")
-
-            # User progress
-            sm = get_sm()
-            if sm:
-                try:
-                    progress = sm.get_user_progress(st.session_state.user["id"])
-                    if progress:
-                        st.markdown('<div class="section-header">Your Topics</div>', unsafe_allow_html=True)
-                        for p in sorted(progress, key=lambda x: x["mastery_score"], reverse=True)[:5]:
-                            score = p["mastery_score"]
-                            color = "#4ade80" if score > 0.7 else "#fbbf24" if score > 0.4 else "#f87171"
-                            st.markdown(
-                                f"<div style='display:flex;justify-content:space-between;margin:4px 0;font-size:13px'>"
-                                f"<span>{p['topic'][:20]}</span>"
-                                f"<span style='color:{color}'>{score:.0%}</span></div>",
-                                unsafe_allow_html=True
-                            )
-                except Exception:
-                    pass
-
-            st.markdown("---")
-
-            # Controls
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("🔄 New Topic", use_container_width=True):
-                    _pause_session()
-                    for key in ["session_id","topic","response_type","chat_history",
-                                "current_flashcards","roadmap_data","section_content",
-                                "quiz_pending","quiz_answers","current_card_idx"]:
-                        st.session_state[key] = [] if key in ("chat_history","current_flashcards","quiz_answers") else None
-                    st.session_state.phase = "setup"
-                    st.rerun()
-            with col2:
-                if st.button("🏁 End Session", use_container_width=True):
-                    st.session_state.phase = "journey"
-                    st.rerun()
-
-
-def _pause_session():
-    sm = get_sm()
-    if sm and st.session_state.session_id:
-        try:
-            sm.pause_session(st.session_state.session_id)
-        except Exception:
-            pass
-
-
-# ─── Phase: Login ─────────────────────────────────────────────────────────────
-def phase_login():
-    st.markdown("<br>", unsafe_allow_html=True)
-    col = st.columns([1, 2, 1])[1]
-    with col:
-        st.markdown("# 🎓 AI Tutor Hub")
-        st.markdown("*Your adaptive AI learning companion*")
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        with st.form("login_form"):
-            name  = st.text_input("Your name", placeholder="e.g. Rohan")
-            email = st.text_input("Email", placeholder="rohan@example.com")
-            lang  = st.selectbox("Preferred language",
-                                  list(SUPPORTED_LANGUAGES.values()),
-                                  index=0)
-            submitted = st.form_submit_button("🚀 Start Learning", use_container_width=True)
-
-        if submitted:
-            if not name or not email:
-                st.error("Please fill in your name and email.")
-                return
-
-            lang_code = [k for k,v in SUPPORTED_LANGUAGES.items() if v == lang][0]
-            st.session_state.language = lang_code
-
-            # Try DB; fallback to in-memory
-            sm = get_sm()
-            if sm:
-                try:
-                    user = sm.get_or_create_user(name, email, lang_code)
-                    st.session_state.user = {
-                        "id": user.id, "name": user.name,
-                        "email": user.email, "language_pref": user.language_pref
-                    }
-                    # Check for active session to resume
-                    active = sm.get_active_session(user.id)
-                    if active:
-                        st.session_state.session_id = active.id
-                        st.session_state.topic = active.topic
-                        st.session_state.response_type = active.response_type
-                        history = sm.get_history(active.id)
-                        st.session_state.chat_history = history
-                        st.session_state.understanding_level = active.understanding_level
-                        add_system_msg(f"✅ Resumed your session on **{active.topic}**! Picking up where you left off.")
-                        st.session_state.phase = "chat"
-                        st.rerun()
-                        return
-                except Exception as e:
-                    st.warning(f"DB unavailable ({e}), running in demo mode.")
-                    st.session_state.user = {"id": 1, "name": name, "email": email, "language_pref": lang_code}
-            else:
-                st.session_state.user = {"id": 1, "name": name, "email": email, "language_pref": lang_code}
-
-            st.session_state.phase = "setup"
-            st.rerun()
-
-
-# ─── Phase: Setup (topic + optional resume) ───────────────────────────────────
-def phase_setup():
-    st.markdown(f"## 👋 Welcome back, {st.session_state.user['name']}!")
-    st.markdown("**What do you want to learn today?**")
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        topic = st.text_input("📚 Enter a topic or question",
-                               placeholder="e.g. Recursion in Python, Photosynthesis, French Revolution...",
-                               label_visibility="collapsed")
-    with col2:
-        go = st.button("Let's Go! →", use_container_width=True, type="primary")
-
-    if go and topic.strip():
-        st.session_state.topic = topic.strip()
-
-        # Check for previous session on same topic
-        sm = get_sm()
-        if sm:
-            try:
-                prev = sm.get_last_session_for_topic(st.session_state.user["id"], topic.strip())
-                if prev:
-                    st.session_state["_prev_session"] = prev.id
-            except Exception:
-                pass
-
-        st.session_state.phase = "type_select"
-        st.rerun()
-
-    # Quick topic suggestions
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("**Quick topics:**")
-    cols = st.columns(5)
-    suggestions = ["Machine Learning", "Photosynthesis", "World War II", "Python Basics", "Trigonometry"]
-    for i, sug in enumerate(suggestions):
-        with cols[i]:
-            if st.button(sug, use_container_width=True):
-                st.session_state.topic = sug
-                st.session_state.phase = "type_select"
-                st.rerun()
-
-
-# ─── Phase: Response Type Selection ──────────────────────────────────────────
-def phase_type_select():
-    st.markdown(f"## 📚 Topic: *{st.session_state.topic}*")
-
-    # Resume prompt if previous session found
-    prev_id = st.session_state.get("_prev_session")
-    if prev_id:
-        st.info(f"🔄 You've studied this topic before! Want to resume your previous session?")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("▶️ Resume Previous Session"):
-                sm = get_sm()
-                if sm:
-                    sm.resume_session(prev_id)
-                    history = sm.get_history(prev_id)
-                    st.session_state.session_id = prev_id
-                    st.session_state.chat_history = history
-                    add_system_msg(f"✅ Resumed! Continuing from where you left off on **{st.session_state.topic}**.")
-                    st.session_state["_prev_session"] = None
-                    st.session_state.phase = "chat"
-                    st.rerun()
-        with col2:
-            if st.button("🆕 Start Fresh"):
-                st.session_state["_prev_session"] = None
-                st.rerun()
-        return
-
-    st.markdown("### How would you like to learn this?")
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    TYPES = {
-        "explanation": {
-            "icon": "💡",
-            "label": "Deep Explanation",
-            "desc": "Comprehensive breakdown with examples and sub-topics"
-        },
-        "qa": {
-            "icon": "❓",
-            "label": "Q&A Mode",
-            "desc": "Answer your specific question with concept elaboration"
-        },
-        "roadmap": {
-            "icon": "🗺️",
-            "label": "Roadmap Journey",
-            "desc": "Step-by-step learning path from basics to advanced"
-        },
-        "summary": {
-            "icon": "📋",
-            "label": "Quick Summary",
-            "desc": "Key points and definitions in a crisp format"
-        },
-        "practice": {
-            "icon": "🏋️",
-            "label": "Practice Problems",
-            "desc": "Problems and exercises to apply your knowledge"
-        }
-    }
-
-    cols = st.columns(3)
-    type_keys = list(TYPES.keys())
-    for i, (type_key, info) in enumerate(TYPES.items()):
-        with cols[i % 3]:
-            st.markdown(f"""
-            <div style="background:#1e1e30;border:1px solid #2a2a40;border-radius:14px;padding:20px;margin:6px 0;text-align:center">
-                <div style="font-size:36px">{info['icon']}</div>
-                <div style="font-size:16px;font-weight:600;color:#c4b5fd;margin:8px 0">{info['label']}</div>
-                <div style="font-size:13px;color:#94a3b8">{info['desc']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button(f"Choose {info['label']}", key=f"type_{type_key}", use_container_width=True):
-                _start_session(type_key)
-                st.rerun()
-
-
-def _start_session(response_type: str):
-    st.session_state.response_type = response_type
-    sm = get_sm()
-    if sm:
-        try:
-            sess = sm.create_session(
-                user_id=st.session_state.user["id"],
-                topic=st.session_state.topic,
-                response_type=response_type
-            )
-            st.session_state.session_id = sess.id
-        except Exception:
-            st.session_state.session_id = None
-
-    # Prime the agent with initial content
-    agent = get_agent()
-    welcome = f"Great! Let's explore **{st.session_state.topic}**. I'll teach you using the {response_type} approach. Ready?"
-    add_system_msg(welcome)
-
-    # Auto-generate first response
-    with st.spinner("Generating your personalized content..."):
-        first_prompt = f"Please begin teaching me about: {st.session_state.topic}"
-        response = agent.get_response(
-            user_input=first_prompt,
-            topic=st.session_state.topic,
-            response_type=response_type,
-            history=[]
-        )
-        # Translate if needed
-        translator = get_translator()
-        if st.session_state.language != "en":
-            response = translator.translate(response, st.session_state.language)
-
-        save_and_display_message("user", first_prompt)
-        save_and_display_message("assistant", response)
-        st.session_state.last_response = response
-        st.session_state.section_content += response
-
-        # Handle roadmap type specially
-        if response_type == "roadmap":
-            roadmap = agent.parse_roadmap(response)
-            if roadmap:
-                st.session_state.roadmap_data = roadmap
-                sm = get_sm()
-                if sm and st.session_state.session_id:
-                    try:
-                        sm.save_roadmap_steps(st.session_state.session_id, roadmap.get("steps", []))
-                    except Exception:
-                        pass
-
-    st.session_state.phase = "chat"
-
-
-# ─── Phase: Chat ──────────────────────────────────────────────────────────────
-def phase_chat():
-    # Display chat history
-    for msg in st.session_state.chat_history:
-        if msg["role"] == "user":
-            st.markdown(f'<div class="chat-user">{msg["content"]}</div>', unsafe_allow_html=True)
-        elif msg["role"] == "assistant":
-            st.markdown(f'<div class="chat-bot">{msg["content"]}</div>', unsafe_allow_html=True)
-        elif msg["role"] == "system":
-            st.markdown(f'<div class="chat-system">💬 {msg["content"]}</div>', unsafe_allow_html=True)
-
-    # Voice play for last assistant message
-    last_assistant = next(
-        (m["content"] for m in reversed(st.session_state.chat_history) if m["role"] == "assistant"),
-        None
+def _get_agent(state: dict) -> AITutorAgent:
+    return AITutorAgent(
+        understanding_level=state.get("understanding_level", 0.5),
+        language=state.get("language", "en"),
     )
-    if last_assistant:
-        maybe_play_voice(last_assistant)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Roadmap progress bar
-    if st.session_state.roadmap_data:
-        render_roadmap_sidebar()
-
-    # Quiz trigger button (show after enough content)
-    content_len = len(st.session_state.section_content)
-    if content_len > 300 and not st.session_state.quiz_pending:
-        st.markdown("---")
-        col1, col2, col3 = st.columns([2, 1, 1])
-        with col2:
-            if st.button("🃏 Test Yourself!", use_container_width=True):
-                st.session_state.quiz_pending = True
-                st.session_state.phase = "quiz"
-                st.rerun()
-        with col3:
-            if st.button("🏁 End Session", use_container_width=True):
-                st.session_state.phase = "journey"
-                st.rerun()
-
-    # Chat input
-    st.markdown("---")
-    with st.form("chat_form", clear_on_submit=True):
-        col1, col2 = st.columns([5, 1])
-        with col1:
-            user_input = st.text_input(
-                "Your message",
-                placeholder="Ask a follow-up, say 'explain more', 'give an example', 'next topic'...",
-                label_visibility="collapsed"
-            )
-        with col2:
-            send = st.form_submit_button("Send →", use_container_width=True)
-
-    if send and user_input.strip():
-        _handle_chat(user_input.strip())
-        st.rerun()
 
 
-def _handle_chat(user_input: str):
-    save_and_display_message("user", user_input)
-
-    agent = get_agent()
-    sm    = get_sm()
-
-    # Check for special commands
-    lower = user_input.lower()
-    if any(k in lower for k in ["end session", "finish", "goodbye", "bye", "done learning"]):
-        st.session_state.phase = "journey"
-        return
-    if any(k in lower for k in ["quiz", "test me", "flashcard", "test myself"]):
-        st.session_state.quiz_pending = True
-        st.session_state.phase = "quiz"
-        return
-
-    with st.spinner("Thinking..."):
-        history = st.session_state.chat_history[:-1]  # exclude the message we just added
-        response = agent.get_response(
-            user_input=user_input,
-            topic=st.session_state.topic,
-            response_type=st.session_state.response_type,
-            history=history
-        )
-        translator = get_translator()
-        if st.session_state.language != "en":
-            response = translator.translate(response, st.session_state.language)
-
-        save_and_display_message("assistant", response)
-        st.session_state.last_response = response
-        st.session_state.section_content += "\n" + response
-
-        # Every ~3 assistant messages, suggest a quiz
-        assistant_msgs = sum(1 for m in st.session_state.chat_history if m["role"] == "assistant")
-        if assistant_msgs > 0 and assistant_msgs % 3 == 0:
-            add_system_msg("💡 You've covered a good chunk! Want to test yourself with some flashcards?")
+def _get_translator() -> TranslationModule:
+    return TranslationModule()
 
 
-def render_roadmap_sidebar():
-    roadmap = st.session_state.roadmap_data
-    if not roadmap:
-        return
-    steps = roadmap.get("steps", [])
-    total = len(steps)
-    done  = st.session_state.current_roadmap_step
-    st.markdown(f"**🗺️ Roadmap: {roadmap.get('topic','')}** — Step {done+1}/{total}")
-    st.progress(done / total if total else 0)
-    if done < total and st.button(f"✅ Complete: {steps[done].get('title','')}", use_container_width=True):
-        st.session_state.current_roadmap_step += 1
-        sm = get_sm()
-        if sm and st.session_state.session_id:
-            try:
-                sm.complete_roadmap_step(st.session_state.session_id, done + 1)
-            except Exception:
-                pass
-        add_system_msg(f"✅ Completed step {done+1}: **{steps[done].get('title','')}**! Moving on...")
-        st.rerun()
-    st.markdown("---")
-
-
-# ─── Phase: Quiz / Flashcards ─────────────────────────────────────────────────
-def phase_quiz():
-    st.markdown("## 🃏 Flashcard Quiz")
-    st.markdown(f"*Testing your understanding of: **{st.session_state.topic}***")
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Generate flashcards if not already done
-    if not st.session_state.current_flashcards:
-        with st.spinner("Generating flashcards..."):
-            agent = get_agent()
-            cards = agent.generate_flashcards(
-                topic=st.session_state.topic,
-                content=st.session_state.section_content
-            )
-            if not cards:
-                st.error("Couldn't generate flashcards. Let's continue chatting!")
-                st.session_state.phase = "chat"
-                st.rerun()
-                return
-            st.session_state.current_flashcards = cards
-            st.session_state.current_card_idx = 0
-            st.session_state.quiz_answers = []
-
-    cards = st.session_state.current_flashcards
-    idx   = st.session_state.current_card_idx
-
-    # All cards done
-    if idx >= len(cards):
-        _show_quiz_results()
-        return
-
-    # Current card
-    card = cards[idx]
-    st.markdown(f"**Question {idx+1} of {len(cards)}**")
-    st.progress((idx) / len(cards))
-
-    st.markdown(f"""
-    <div class="flashcard">
-        <div class="flashcard-question">{card['question']}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    with st.form(f"quiz_form_{idx}", clear_on_submit=True):
-        answer = st.text_area("Your answer:", placeholder="Type your answer here...", height=100, label_visibility="collapsed")
-        col1, col2 = st.columns(2)
-        with col1:
-            submit = st.form_submit_button("✅ Submit Answer", use_container_width=True)
-        with col2:
-            skip = st.form_submit_button("⏭️ Skip", use_container_width=True)
-
-    if submit and answer.strip():
-        with st.spinner("Evaluating..."):
-            agent = get_agent()
-            eval_result = agent.evaluate_answer(
-                question=card["question"],
-                correct_answer=card["answer"],
-                user_answer=answer.strip()
-            )
-
-        is_correct = eval_result.get("is_correct", False)
-        score      = eval_result.get("score", 0.0)
-        feedback   = eval_result.get("feedback", "")
-        explanation = eval_result.get("explanation", card["answer"])
-
-        # Show result
-        if is_correct:
-            st.success(f"✅ {feedback}")
-        elif score > 0.4:
-            st.warning(f"🌟 Partially correct! {feedback}")
-        else:
-            st.error(f"❌ {feedback}")
-
-        st.markdown(f"""
-        <div class="flashcard">
-            <div class="flashcard-question">{card['question']}</div>
-            <div class="flashcard-answer">✅ Answer: {explanation}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Save attempt
-        sm = get_sm()
-        if sm and st.session_state.session_id:
-            try:
-                sm.save_quiz_attempt(
-                    session_id=st.session_state.session_id,
-                    topic=card.get("topic", st.session_state.topic),
-                    question=card["question"],
-                    correct_answer=card["answer"],
-                    user_answer=answer.strip(),
-                    is_correct=is_correct,
-                    score=score
-                )
-            except Exception:
-                pass
-
-        st.session_state.quiz_answers.append({"card": card, "score": score, "is_correct": is_correct})
-
-        time.sleep(0.5)
-        st.session_state.current_card_idx += 1
-        st.rerun()
-
-    if skip:
-        st.session_state.quiz_answers.append({"card": card, "score": 0.0, "is_correct": False})
-        st.session_state.current_card_idx += 1
-        st.rerun()
-
-
-def _show_quiz_results():
-    answers = st.session_state.quiz_answers
-    if not answers:
-        st.session_state.phase = "chat"
-        st.rerun()
-        return
-
-    total   = len(answers)
-    correct = sum(1 for a in answers if a["is_correct"])
-    avg     = sum(a["score"] for a in answers) / total
-    pct     = int(avg * 100)
-
-    # Update understanding level
-    agent = get_agent()
-    scores = [a["score"] for a in answers]
-    new_level = agent.update_understanding(scores)
-    st.session_state.understanding_level = new_level
-    sm = get_sm()
-    if sm and st.session_state.session_id:
+def _add_message(state: dict, role: str, content: str):
+    state.setdefault("chat_history", []).append({"role": role, "content": content})
+    sm = _get_sm()
+    if sm and state.get("session_id") and role in {"user", "assistant", "system"}:
         try:
-            sm.update_understanding(
-                st.session_state.session_id, new_level,
-                st.session_state.user["id"], st.session_state.topic
-            )
+            sm.save_message(state["session_id"], role, content, state.get("language", "en"))
         except Exception:
             pass
-
-    # Results display
-    st.markdown("## 📊 Quiz Results")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{correct}/{total}</div><div class="metric-label">Correct</div></div>', unsafe_allow_html=True)
-    with col2:
-        color = "score-good" if pct >= 70 else "score-ok" if pct >= 40 else "score-bad"
-        st.markdown(f'<div class="metric-card"><div class="metric-value {color}">{pct}%</div><div class="metric-label">Score</div></div>', unsafe_allow_html=True)
-    with col3:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{new_level:.0%}</div><div class="metric-label">Understanding</div></div>', unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Identify weak topics
-    weak = [a["card"].get("topic", st.session_state.topic) for a in answers if not a["is_correct"]]
-    weak = list(set(weak))
-
-    if pct >= 70:
-        st.success("🎉 Excellent! You've got a strong understanding. Let's continue!")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("▶️ Continue Learning", use_container_width=True):
-                st.session_state.current_flashcards = []
-                st.session_state.quiz_answers = []
-                st.session_state.section_content = ""
-                st.session_state.quiz_pending = False
-                st.session_state.phase = "chat"
-                add_system_msg(f"🎯 Quiz done — {pct}% score! Great job! Let's keep going.")
-                st.rerun()
-        with col2:
-            if st.button("🏁 End Session", use_container_width=True):
-                st.session_state.phase = "journey"
-                st.rerun()
-    else:
-        st.warning(f"📖 Some areas need more work ({100-pct}% of questions were tricky).")
-        if weak:
-            st.markdown(f"**Weak areas:** {', '.join(weak)}")
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("🔄 Reteach Weak Topics", use_container_width=True):
-                st.session_state.current_flashcards = []
-                st.session_state.quiz_answers = []
-                st.session_state.section_content = ""
-                st.session_state.quiz_pending = False
-                st.session_state.phase = "chat"
-                # Trigger reteach
-                with st.spinner("Preparing a new explanation..."):
-                    for topic in weak[:2]:  # reteach top 2 weak topics
-                        reteach_response = agent.reteach_topic(topic, st.session_state.chat_history)
-                        translator = get_translator()
-                        if st.session_state.language != "en":
-                            reteach_response = translator.translate(reteach_response, st.session_state.language)
-                        save_and_display_message("assistant", reteach_response)
-                        st.session_state.section_content += reteach_response
-                add_system_msg(f"🔄 Let's revisit the tricky parts with a fresh approach!")
-                st.rerun()
-        with col2:
-            if st.button("▶️ Continue Anyway", use_container_width=True):
-                st.session_state.current_flashcards = []
-                st.session_state.quiz_answers = []
-                st.session_state.section_content = ""
-                st.session_state.quiz_pending = False
-                st.session_state.phase = "chat"
-                add_system_msg(f"Moving on! Feel free to ask if anything is still unclear.")
-                st.rerun()
-        with col3:
-            if st.button("🏁 End Session", use_container_width=True):
-                st.session_state.phase = "journey"
-                st.rerun()
+        finally:
+            sm.close()
 
 
-# ─── Phase: Journey Summary ───────────────────────────────────────────────────
-def phase_journey():
-    sm  = get_sm()
-    if sm and st.session_state.session_id:
-        try:
-            sm.end_session(st.session_state.session_id)
-        except Exception:
-            pass
-
-    st.markdown("## 🏁 Your Learning Journey")
-    st.markdown(f"*Session on: **{st.session_state.topic}***")
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Build progress data
-    if sm and st.session_state.session_id:
-        try:
-            journey_data = sm.get_session_journey_data(
-                session_id=st.session_state.session_id,
-                user_id=st.session_state.user["id"],
-                topic=st.session_state.topic or "General"
-            )
-        except Exception:
-            journey_data = _build_local_journey_data()
-    else:
-        journey_data = _build_local_journey_data()
-
-    # Summary metrics
-    qr = journey_data.get("quiz_results", {})
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        mins = journey_data.get("session_duration_minutes", 0)
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{mins}</div><div class="metric-label">Minutes</div></div>', unsafe_allow_html=True)
-    with col2:
-        msgs = journey_data.get("messages_exchanged", len(st.session_state.chat_history))
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{msgs}</div><div class="metric-label">Messages</div></div>', unsafe_allow_html=True)
-    with col3:
-        acc = qr.get("accuracy_percent", 0)
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{acc:.0f}%</div><div class="metric-label">Quiz Accuracy</div></div>', unsafe_allow_html=True)
-    with col4:
-        level = journey_data.get("understanding_level", st.session_state.understanding_level)
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{level:.0%}</div><div class="metric-label">Mastery</div></div>', unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # AI-generated journey summary
-    with st.spinner("Generating your personalized journey summary..."):
-        agent = get_agent()
-        summary = agent.generate_journey_summary(journey_data)
-        translator = get_translator()
-        if st.session_state.language != "en":
-            summary = translator.translate(summary, st.session_state.language)
-
-    st.markdown(f'<div class="chat-bot">{summary}</div>', unsafe_allow_html=True)
-    maybe_play_voice(summary)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Roadmap completion
-    if st.session_state.roadmap_data:
-        steps = st.session_state.roadmap_data.get("steps", [])
-        done  = st.session_state.current_roadmap_step
-        st.markdown("### 🗺️ Roadmap Progress")
-        for i, step in enumerate(steps):
-            status = "completed" if i < done else "active" if i == done else ""
-            icon   = "✅" if i < done else "🔵" if i == done else "⚪"
-            st.markdown(f"""
-            <div class="roadmap-step {status}">
-                {icon} <strong>Step {i+1}: {step.get('title','')}</strong>
-                <div style="font-size:13px;color:#94a3b8;margin-top:4px">{step.get('content','')[:100]}...</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📚 Study Another Topic", use_container_width=True, type="primary"):
-            for key in ["session_id","topic","response_type","chat_history","current_flashcards",
-                        "roadmap_data","section_content","quiz_pending","quiz_answers",
-                        "current_card_idx","current_roadmap_step","last_response"]:
-                st.session_state[key] = (
-                    [] if key in ("chat_history","current_flashcards","quiz_answers") else
-                    0  if key in ("current_card_idx","current_roadmap_step") else
-                    None
-                )
-            st.session_state.section_content = ""
-            st.session_state.phase = "setup"
-            st.rerun()
-    with col2:
-        if st.button("🔚 Logout", use_container_width=True):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            init_state()
-            st.rerun()
-
-
-def _build_local_journey_data() -> dict:
-    history = st.session_state.chat_history
+def _build_local_journey_data(state: dict) -> dict:
+    answers = state.get("quiz_answers", [])
+    history = state.get("chat_history", [])
+    total = max(len(answers), 1)
     return {
-        "topic": st.session_state.topic or "General",
+        "topic": state.get("topic") or "General",
         "session_duration_minutes": 0,
-        "messages_exchanged": sum(1 for m in history if m["role"] in ("user","assistant")),
+        "messages_exchanged": sum(1 for msg in history if msg.get("role") in ("user", "assistant")),
         "quiz_results": {
-            "total_questions": len(st.session_state.quiz_answers),
-            "correct_answers": sum(1 for a in st.session_state.quiz_answers if a.get("is_correct")),
-            "average_score": sum(a.get("score",0) for a in st.session_state.quiz_answers) / max(len(st.session_state.quiz_answers),1),
-            "accuracy_percent": round(
-                sum(a.get("score",0) for a in st.session_state.quiz_answers) / max(len(st.session_state.quiz_answers),1) * 100, 1
-            )
+            "total_questions": len(answers),
+            "correct_answers": sum(1 for ans in answers if ans.get("is_correct")),
+            "average_score": sum(ans.get("score", 0) for ans in answers) / total,
+            "accuracy_percent": round(sum(ans.get("score", 0) for ans in answers) / total * 100, 1),
         },
-        "understanding_level": st.session_state.understanding_level,
+        "understanding_level": state.get("understanding_level", 0.5),
         "weak_topics": [],
         "roadmap_progress": {"total_steps": 0, "completed_steps": 0, "completed_titles": []},
-        "overall_progress": []
+        "overall_progress": [],
     }
 
 
-# ─── Main Router ──────────────────────────────────────────────────────────────
-render_sidebar()
+def _fallback_lesson(topic: str, response_type: str) -> str:
+    return (
+        f"Welcome to Prashiksha. Let's begin {topic} in {response_type} mode.\n\n"
+        "1. Start with the core idea in simple words.\n"
+        "2. Connect it to one real example.\n"
+        "3. Practice with a small question.\n\n"
+        "The AI service was not reachable for this response, but the Flask frontend and learning flow are ready."
+    )
 
-phase = st.session_state.phase
 
-if phase == "login":
-    phase_login()
-elif phase == "setup":
-    phase_setup()
-elif phase == "type_select":
-    phase_type_select()
-elif phase == "chat":
-    phase_chat()
-elif phase == "quiz":
-    phase_quiz()
-elif phase == "journey":
-    phase_journey()
+def _ai_error_text(error: Exception) -> str:
+    if os.getenv("PRASHIKSHA_DEBUG_AI", "").lower() in {"1", "true", "yes"}:
+        return f"\n\nAI debug: {type(error).__name__}: {error}"
+    return ""
+
+
+def _fallback_cards(topic: str) -> list[dict]:
+    return [
+        {
+            "question": f"What is the main idea of {topic}?",
+            "answer": f"Explain the core meaning of {topic} in your own words.",
+            "topic": topic,
+        },
+        {
+            "question": f"Give one real-world example of {topic}.",
+            "answer": f"A useful example should connect {topic} to something practical or familiar.",
+            "topic": topic,
+        },
+    ]
+
+
+def _notes(state: dict) -> list[dict]:
+    state.setdefault("notes", [])
+    return state["notes"]
+
+
+def _note_back_url(default: str = "topic") -> str:
+    candidate = request.values.get("back") or request.referrer
+    if candidate and candidate.startswith("/"):
+        return candidate
+    return url_for(default)
+
+
+def login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not _state().get("user"):
+            return redirect(url_for("login"))
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
+@app.context_processor
+def inject_globals():
+    return {
+        "languages": SUPPORTED_LANGUAGES,
+        "learning_types": LEARNING_TYPES,
+        "state": _state(),
+        "brand_name": "Prashiksha",
+    }
+
+
+@app.get("/")
+def login():
+    state = _state()
+    if state.get("user"):
+        return redirect(url_for("topic"))
+    return render_template("login.html")
+
+
+@app.post("/login")
+def submit_login():
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip()
+    language = request.form.get("language", "en")
+
+    if not name or not email:
+        return render_template("login.html", error="Please enter your name and Gmail address."), 400
+    if language not in SUPPORTED_LANGUAGES:
+        language = "en"
+
+    state = _initial_learning_state()
+    state["language"] = language
+
+    sm = _get_sm()
+    if sm:
+        try:
+            user = sm.get_or_create_user(name, email, language)
+            state["user"] = {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "language_pref": user.language_pref,
+            }
+            active = sm.get_active_session(user.id)
+            if active:
+                state["session_id"] = active.id
+                state["topic"] = active.topic
+                state["response_type"] = active.response_type
+                state["chat_history"] = sm.get_history(active.id)
+                state["understanding_level"] = active.understanding_level
+                _add_message(state, "system", f"Resumed your session on {active.topic}.")
+                _save_state(state)
+                return redirect(url_for("learn"))
+        except Exception:
+            state["user"] = {"id": 1, "name": name, "email": email, "language_pref": language}
+        finally:
+            sm.close()
+    else:
+        state["user"] = {"id": 1, "name": name, "email": email, "language_pref": language}
+
+    _reset_state(state)
+    return redirect(url_for("topic"))
+
+
+@app.route("/topic", methods=["GET", "POST"])
+@login_required
+def topic():
+    state = _state()
+    if request.method == "POST":
+        selected_topic = request.form.get("topic", "").strip()
+        if not selected_topic:
+            return render_template("topic.html", quick_topics=QUICK_TOPICS, error="Choose a topic to begin."), 400
+        state["topic"] = selected_topic
+        state["prev_session_id"] = None
+        sm = _get_sm()
+        if sm:
+            try:
+                previous = sm.get_last_session_for_topic(state["user"]["id"], selected_topic)
+                if previous:
+                    state["prev_session_id"] = previous.id
+            except Exception:
+                pass
+            finally:
+                sm.close()
+        _save_state(state)
+        return redirect(url_for("mode"))
+    return render_template("topic.html", quick_topics=QUICK_TOPICS)
+
+
+@app.route("/mode", methods=["GET", "POST"])
+@login_required
+def mode():
+    state = _state()
+    if not state.get("topic"):
+        return redirect(url_for("topic"))
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "resume" and state.get("prev_session_id"):
+            sm = _get_sm()
+            if sm:
+                try:
+                    sm.resume_session(state["prev_session_id"])
+                    state["session_id"] = state["prev_session_id"]
+                    state["chat_history"] = sm.get_history(state["prev_session_id"])
+                    state["prev_session_id"] = None
+                    _add_message(state, "system", f"Continuing from where you left off on {state['topic']}.")
+                    _save_state(state)
+                    return redirect(url_for("learn"))
+                finally:
+                    sm.close()
+
+        response_type = request.form.get("response_type", "explanation")
+        if response_type not in LEARNING_TYPES:
+            response_type = "explanation"
+        _prepare_session(state, response_type)
+        _save_state(state)
+        return redirect(url_for("learn"))
+
+    return render_template("mode.html")
+
+
+def _prepare_session(state: dict, response_type: str):
+    state["response_type"] = response_type
+    state["initial_lesson_started"] = False
+    sm = _get_sm()
+    if sm:
+        try:
+            created = sm.create_session(state["user"]["id"], state["topic"], response_type)
+            state["session_id"] = created.id
+        except Exception:
+            state["session_id"] = None
+        finally:
+            sm.close()
+
+    _add_message(state, "system", f"Great. Prashiksha will teach {state['topic']} using {response_type} mode.")
+
+
+def _start_initial_lesson(state: dict):
+    if state.get("initial_lesson_started"):
+        return
+
+    state["initial_lesson_started"] = True
+    agent = _get_agent(state)
+    prompt = f"Please begin teaching me about: {state['topic']}"
+    try:
+        response = agent.get_response(prompt, state["topic"], state["response_type"], [])
+    except Exception as error:
+        response = _fallback_lesson(state["topic"], state["response_type"]) + _ai_error_text(error)
+    if state.get("language") != "en":
+        response = _get_translator().translate(response, state["language"])
+    _add_message(state, "user", prompt)
+    _add_message(state, "assistant", response)
+    state["section_content"] = state.get("section_content", "") + response
+
+    if state["response_type"] == "roadmap":
+        roadmap = agent.parse_roadmap(response)
+        if roadmap:
+            state["roadmap_data"] = roadmap
+            sm = _get_sm()
+            if sm and state.get("session_id"):
+                try:
+                    sm.save_roadmap_steps(state["session_id"], roadmap.get("steps", []))
+                except Exception:
+                    pass
+                finally:
+                    sm.close()
+
+
+@app.get("/learn")
+@login_required
+def learn():
+    state = _state()
+    if not state.get("topic"):
+        return redirect(url_for("topic"))
+    if not state.get("response_type"):
+        return redirect(url_for("mode"))
+    return render_template("learn.html")
+
+
+@app.route("/notes", methods=["GET", "POST"])
+@login_required
+def notes():
+    state = _state()
+    back_url = _note_back_url()
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        content = request.form.get("content", "").strip()
+        if title and content:
+            _notes(state).insert(
+                0,
+                {
+                    "id": uuid.uuid4().hex,
+                    "title": title,
+                    "content": content,
+                    "topic": state.get("topic") or "General",
+                    "created_at": datetime.now().strftime("%d %b %Y, %I:%M %p"),
+                },
+            )
+            _save_state(state)
+            return redirect(url_for("notes", back=back_url))
+        return render_template("notes.html", notes=_notes(state), back_url=back_url, error="Add a title and note content.")
+    return render_template("notes.html", notes=_notes(state), back_url=back_url)
+
+
+@app.post("/notes/<note_id>/edit")
+@login_required
+def edit_note(note_id: str):
+    state = _state()
+    back_url = _note_back_url()
+    title = request.form.get("title", "").strip()
+    content = request.form.get("content", "").strip()
+    for note in _notes(state):
+        if note["id"] == note_id:
+            if title:
+                note["title"] = title
+            note["content"] = content
+            note["updated_at"] = datetime.now().strftime("%d %b %Y, %I:%M %p")
+            break
+    _save_state(state)
+    return redirect(url_for("notes", back=back_url))
+
+
+@app.post("/notes/<note_id>/delete")
+@login_required
+def delete_note(note_id: str):
+    state = _state()
+    back_url = _note_back_url()
+    state["notes"] = [note for note in _notes(state) if note["id"] != note_id]
+    _save_state(state)
+    return redirect(url_for("notes", back=back_url))
+
+
+@app.post("/api/notes")
+@login_required
+def api_create_note():
+    state = _state()
+    data = request.json or {}
+    content = data.get("content", "").strip()
+    title = data.get("title", "").strip() or state.get("topic") or "Quick Note"
+    if not content:
+        return jsonify({"error": "Note content is required."}), 400
+    note = {
+        "id": uuid.uuid4().hex,
+        "title": title,
+        "content": content,
+        "topic": state.get("topic") or "General",
+        "created_at": datetime.now().strftime("%d %b %Y, %I:%M %p"),
+    }
+    _notes(state).insert(0, note)
+    _save_state(state)
+    return jsonify({"note": note, "count": len(_notes(state))})
+
+
+@app.post("/api/lesson/start")
+@login_required
+def api_start_lesson():
+    state = _state()
+    if not state.get("topic") or not state.get("response_type"):
+        return jsonify({"error": "Choose a topic and mode first."}), 400
+    _start_initial_lesson(state)
+    _save_state(state)
+    return jsonify(
+        {
+            "messages": state.get("chat_history", []),
+            "roadmap_data": state.get("roadmap_data"),
+            "current_roadmap_step": state.get("current_roadmap_step", 0),
+        }
+    )
+
+
+@app.post("/api/chat")
+@login_required
+def api_chat():
+    state = _state()
+    user_input = (request.json or {}).get("message", "").strip()
+    if not user_input:
+        return jsonify({"error": "Message is required."}), 400
+
+    lower = user_input.lower()
+    _add_message(state, "user", user_input)
+    if any(token in lower for token in ["end session", "finish", "goodbye", "bye", "done learning"]):
+        _save_state(state)
+        return jsonify({"redirect": url_for("journey")})
+    if any(token in lower for token in ["quiz", "test me", "flashcard", "test myself"]):
+        _save_state(state)
+        return jsonify({"quiz": True})
+
+    agent = _get_agent(state)
+    history = state.get("chat_history", [])[:-1]
+    try:
+        response = agent.get_response(user_input, state["topic"], state["response_type"], history)
+    except Exception as error:
+        response = _fallback_lesson(state["topic"], state["response_type"]) + _ai_error_text(error)
+    if state.get("language") != "en":
+        response = _get_translator().translate(response, state["language"])
+
+    _add_message(state, "assistant", response)
+    state["section_content"] = state.get("section_content", "") + "\n" + response
+    assistant_count = sum(1 for msg in state.get("chat_history", []) if msg.get("role") == "assistant")
+    if assistant_count and assistant_count % 3 == 0:
+        _add_message(state, "system", "You have covered a useful chunk. Try a quick flashcard check when ready.")
+    _save_state(state)
+    return jsonify({"messages": state["chat_history"], "can_quiz": len(state.get("section_content", "")) > 300})
+
+
+@app.post("/api/roadmap/complete")
+@login_required
+def complete_roadmap_step():
+    state = _state()
+    steps = (state.get("roadmap_data") or {}).get("steps", [])
+    current = state.get("current_roadmap_step", 0)
+    if current < len(steps):
+        state["current_roadmap_step"] = current + 1
+        sm = _get_sm()
+        if sm and state.get("session_id"):
+            try:
+                sm.complete_roadmap_step(state["session_id"], current + 1)
+            except Exception:
+                pass
+            finally:
+                sm.close()
+    _save_state(state)
+    return jsonify({"current_step": state["current_roadmap_step"]})
+
+
+@app.post("/api/quiz/start")
+@login_required
+def start_quiz():
+    state = _state()
+    # Always reset state to start a fresh quiz attempt
+    state["current_flashcards"] = []
+    state["current_card_idx"] = 0
+    state["quiz_answers"] = []
+
+    try:
+        cards = _get_agent(state).generate_flashcards(state["topic"], state.get("section_content", ""))
+    except Exception:
+        cards = []
+    if not cards:
+        cards = _fallback_cards(state["topic"])
+    state["current_flashcards"] = cards
+    _save_state(state)
+    return jsonify(_quiz_payload(state))
+
+
+@app.post("/api/quiz/answer")
+@login_required
+def answer_quiz():
+    state = _state()
+    answer = (request.json or {}).get("answer", "").strip()
+    skip = bool((request.json or {}).get("skip"))
+    cards = state.get("current_flashcards", [])
+    idx = state.get("current_card_idx", 0)
+    if idx >= len(cards):
+        return jsonify(_quiz_payload(state))
+
+    card = cards[idx]
+    if skip:
+        result = {
+            "is_correct": False,
+            "score": 0.0,
+            "feedback": "Skipped.",
+            "explanation": card.get("explanation") or card.get("answer") or "Skipped question."
+        }
+    elif card.get("type") == "mcq":
+        # MCQ local grading
+        import re
+        correct_letter = card.get("answer", "").strip().upper()
+        # Extract user answer letter
+        user_match = re.match(r"^([A-D])", answer.strip().upper())
+        user_letter = user_match.group(1) if user_match else answer.strip().upper()
+        
+        is_correct = (user_letter == correct_letter)
+        score = 1.0 if is_correct else 0.0
+        result = {
+            "is_correct": is_correct,
+            "score": score,
+            "feedback": "Correct!" if is_correct else "Incorrect.",
+            "explanation": card.get("explanation") or f"The correct answer is {correct_letter}."
+        }
+    else:
+        try:
+            result = _get_agent(state).evaluate_answer(card["question"], card["answer"], answer)
+        except Exception:
+            score = 1.0 if answer and any(word in answer.lower() for word in card["answer"].lower().split()[:4]) else 0.4
+            result = {
+                "is_correct": score >= 0.6,
+                "score": score,
+                "feedback": "Nice effort." if score >= 0.6 else "Good attempt. Review the sample answer once.",
+                "explanation": card["answer"],
+            }
+
+    sm = _get_sm()
+    if sm and state.get("session_id"):
+        try:
+            sm.save_quiz_attempt(
+                state["session_id"],
+                card.get("topic", state["topic"]),
+                card["question"],
+                card.get("answer", ""),
+                answer,
+                result.get("is_correct", False),
+                result.get("score", 0.0),
+            )
+        except Exception:
+            pass
+        finally:
+            sm.close()
+
+    state.setdefault("quiz_answers", []).append({"card": card, **result})
+    state["current_card_idx"] = idx + 1
+    if state["current_card_idx"] >= len(cards):
+        scores = [item.get("score", 0.0) for item in state.get("quiz_answers", [])]
+        state["understanding_level"] = _get_agent(state).update_understanding(scores)
+        sm = _get_sm()
+        if sm and state.get("session_id"):
+            try:
+                sm.update_understanding(
+                    state["session_id"],
+                    state["understanding_level"],
+                    state["user"]["id"],
+                    state["topic"]
+                )
+            except Exception:
+                pass
+            finally:
+                sm.close()
+
+    _save_state(state)
+    payload = _quiz_payload(state)
+    payload["last_result"] = result
+    payload["answered_card"] = card
+    payload["user_answer"] = answer
+    return jsonify(payload)
+
+
+def _quiz_payload(state: dict) -> dict:
+    cards = state.get("current_flashcards", [])
+    idx = state.get("current_card_idx", 0)
+    answers = state.get("quiz_answers", [])
+    if idx >= len(cards) and cards:
+        total = len(answers)
+        avg = sum(item.get("score", 0) for item in answers) / max(total, 1)
+        return {
+            "done": True,
+            "total": total,
+            "correct": sum(1 for item in answers if item.get("is_correct")),
+            "score": round(avg * 100),
+            "understanding": round(state.get("understanding_level", 0.5) * 100),
+        }
+    return {
+        "done": False,
+        "index": idx,
+        "total": len(cards),
+        "card": cards[idx] if idx < len(cards) else None,
+    }
+
+
+@app.get("/journey")
+@login_required
+def journey():
+    state = _state()
+    sm = _get_sm()
+    if sm and state.get("session_id"):
+        try:
+            sm.end_session(state["session_id"])
+            journey_data = sm.get_session_journey_data(
+                state["session_id"], state["user"]["id"], state.get("topic") or "General"
+            )
+        except Exception:
+            journey_data = _build_local_journey_data(state)
+        finally:
+            sm.close()
+    else:
+        journey_data = _build_local_journey_data(state)
+
+    try:
+        summary = _get_agent(state).generate_journey_summary(journey_data)
+    except Exception:
+        summary = (
+            f"You worked on {journey_data.get('topic', 'your topic')} with Prashiksha. "
+            f"You exchanged {journey_data.get('messages_exchanged', 0)} learning messages and reached "
+            f"{journey_data.get('understanding_level', 0.5):.0%} mastery. Keep going with one small revision "
+            "and one practice round next."
+        )
+    if state.get("language") != "en":
+        summary = _get_translator().translate(summary, state["language"])
+    return render_template("journey.html", journey_data=journey_data, summary=summary)
+
+
+@app.post("/new-topic")
+@login_required
+def new_topic():
+    state = _state()
+    sm = _get_sm()
+    if sm and state.get("session_id"):
+        try:
+            sm.pause_session(state["session_id"])
+        except Exception:
+            pass
+        finally:
+            sm.close()
+    user = state["user"]
+    language = state.get("language", "en")
+    notes = _notes(state)
+    state = _initial_learning_state()
+    state["user"] = user
+    state["language"] = language
+    state["notes"] = notes
+    _save_state(state)
+    return redirect(url_for("topic"))
+
+
+@app.post("/logout")
+def logout():
+    state_id = session.get("learning_state_id")
+    if state_id:
+        LEARNING_STATES.pop(state_id, None)
+    session.clear()
+    return redirect(url_for("login"))
+
+
+if __name__ == "__main__":
+    app.run(debug=True)

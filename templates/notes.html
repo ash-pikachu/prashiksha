@@ -1,0 +1,62 @@
+{% extends "app_shell.html" %}
+{% block title %}Notes | Prashiksha{% endblock %}
+{% block content %}
+<section class="page-head notes-head">
+    <div>
+        <p class="eyebrow">Study Notes</p>
+        <h1>Your saved notes</h1>
+        <p class="page-copy">Create notes manually or save selected text from Deep Explanation without losing your lesson.</p>
+    </div>
+    <a class="ghost-link" href="{{ back_url }}"><i data-lucide="arrow-left"></i> Back to reading</a>
+</section>
+
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+
+<section class="notes-layout">
+    <form method="post" action="{{ url_for('notes', back=back_url) }}" class="note-editor">
+        <div class="note-editor-head">
+            <i data-lucide="square-pen"></i>
+            <h2>Create a new note</h2>
+        </div>
+        <label>
+            <span>Topic / title</span>
+            <input name="title" type="text" placeholder="Photosynthesis - Chlorophyll" value="{{ state.topic or '' }}" required>
+        </label>
+        <label>
+            <span>Content</span>
+            <textarea name="content" placeholder="Type or paste your note here..." required></textarea>
+        </label>
+        <button class="primary-btn" type="submit"><i data-lucide="save"></i> Save Note</button>
+    </form>
+
+    <div class="notes-list">
+        {% if notes %}
+            {% for note in notes %}
+                <article class="note-card">
+                    <div class="note-card-top">
+                        <div>
+                            <p class="eyebrow">{{ note.topic }}</p>
+                            <h2>{{ note.title }}</h2>
+                            <small>{{ note.updated_at or note.created_at }}</small>
+                        </div>
+                        <form method="post" action="{{ url_for('delete_note', note_id=note.id, back=back_url) }}">
+                            <button class="icon-btn danger" type="submit" title="Delete note"><i data-lucide="trash-2"></i></button>
+                        </form>
+                    </div>
+                    <form method="post" action="{{ url_for('edit_note', note_id=note.id, back=back_url) }}" class="note-edit-form">
+                        <input name="title" value="{{ note.title }}" aria-label="Note title">
+                        <textarea name="content" aria-label="Note content">{{ note.content }}</textarea>
+                        <button class="secondary-btn" type="submit"><i data-lucide="check"></i> Update</button>
+                    </form>
+                </article>
+            {% endfor %}
+        {% else %}
+            <div class="empty-notes">
+                <i data-lucide="notebook-tabs"></i>
+                <h2>No notes yet</h2>
+                <p>Select text from Deep Explanation or create your first note here.</p>
+            </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
