@@ -2,9 +2,11 @@
 {% block body %}
 <div class="app-layout">
     <aside class="sidebar">
-        <a class="side-brand" href="{{ url_for('topic') }}">
-            <div class="brand-mark"><i data-lucide="graduation-cap"></i></div>
-            <span>Prashiksha</span>
+        <a class="side-brand" href="{{ url_for('topic') }}" title="Prashiksha Home">
+            <div class="brand-mark">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Prashiksha Logo" class="brand-logo-img" width="38" height="38">
+            </div>
+            <span class="brand-text">Prashiksha</span>
         </a>
         <div class="student-chip">
             <i data-lucide="user-round"></i>
@@ -27,11 +29,25 @@
             {% set level_hint = "Strong mastery" %}
             {% set level_icon = "badge-check" %}
         {% endif %}
-        {% if state.topic %}
+        {% if state.topic and request.endpoint != 'topic' %}
             <div class="side-section">
                 <span>Current Class</span>
                 <strong>{{ state.topic }}</strong>
-                <small>{{ state.response_type or "Choose a mode" }}</small>
+                <small>
+                    {% if state.response_type == 'explanation' %}
+                        Deep Learning
+                    {% elif state.response_type == 'roadmap' %}
+                        Roadmap Mode
+                    {% elif state.response_type == 'qa' %}
+                        Question & Answer
+                    {% elif state.response_type == 'practice' %}
+                        Practice Problems
+                    {% elif state.response_type == 'summary' %}
+                        Executive Summary
+                    {% else %}
+                        {{ state.response_type or "Choose a mode" }}
+                    {% endif %}
+                </small>
             </div>
         {% endif %}
         <div class="mastery level-{{ level_label|lower }}">
@@ -53,6 +69,44 @@
                 <span>Expert</span>
             </div>
         </div>
+        <div class="past-topics-box">
+            <div class="past-topics-header">
+                <div class="past-topics-title">
+                    <i data-lucide="history"></i>
+                    <span>Past Topics</span>
+                </div>
+                {% if past_topics and past_topics|length > 0 %}
+                    <span class="past-topics-count">{{ past_topics|length }}</span>
+                {% endif %}
+            </div>
+            <div class="past-topics-list">
+                {% if past_topics and past_topics|length > 0 %}
+                    {% for pt in past_topics %}
+                        <form method="post" action="{{ url_for('topic') }}" class="past-topic-form">
+                            <input type="hidden" name="topic" value="{{ pt.topic }}">
+                            <button type="submit" class="past-topic-item {% if state.topic and state.topic|lower == pt.topic|lower %}active{% endif %}" title="Study {{ pt.topic }}">
+                                <div class="past-topic-info">
+                                    <i data-lucide="book-marked"></i>
+                                    <span class="past-topic-name">{{ pt.topic }}</span>
+                                </div>
+                                <div class="past-topic-meta">
+                                    {% set pt_mastery = ((pt.mastery_score or 0) * 100)|round|int %}
+                                    <span class="past-topic-pill {% if pt_mastery >= 70 %}expert{% elif pt_mastery >= 35 %}average{% else %}newbie{% endif %}">
+                                        {{ pt_mastery }}%
+                                    </span>
+                                    <i data-lucide="chevron-right" class="past-topic-arrow"></i>
+                                </div>
+                            </button>
+                        </form>
+                    {% endfor %}
+                {% else %}
+                    <div class="past-topics-empty">
+                        <i data-lucide="compass"></i>
+                        <span>Topics you study will appear here</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
         <div class="sidebar-actions">
             <form method="post" action="{{ url_for('new_topic') }}">
                 <button class="ghost-btn" type="submit"><i data-lucide="book-open"></i> New Topic</button>
@@ -62,11 +116,160 @@
             </form>
         </div>
     </aside>
-    <main class="content">
-        <a class="notes-fab" href="{{ url_for('notes', back=request.path) }}" title="Open notes" aria-label="Open notes">
-            <i data-lucide="notebook-pen"></i>
-            <span>{{ state.notes|length if state.notes else 0 }}</span>
-        </a>
+    <main class="content {% block content_class %}{% endblock %}">
+        <!-- Floating Dock: Visible across all learning areas -->
+        <div class="top-floating-dock" id="topFloatingDock">
+            <!-- Notifications Button -->
+            <button class="dock-btn notifications-fab" id="notificationsFabBtn" type="button" title="Notifications" aria-label="Notifications">
+                <i data-lucide="bell"></i>
+                <span class="dock-badge notif-badge {% if not unread_notifications_count %}is-hidden{% endif %}" id="notifBadge">
+                    {{ unread_notifications_count or 0 }}
+                </span>
+            </button>
+
+            <!-- Notes Button (hidden when already on full notes page) -->
+            {% if request.endpoint != 'notes' %}
+            <button class="dock-btn notes-fab-dock" id="notesFabBtn" type="button" title="Study Notes" aria-label="Study notes">
+                <i data-lucide="notebook-pen"></i>
+                <span class="dock-badge notes-badge" id="notesBadge">
+                    {{ state.notes|length if state.notes else 0 }}
+                </span>
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Floating Notifications Flyout Panel -->
+        <div class="notifications-panel" id="notificationsPanel" aria-hidden="true">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i data-lucide="bell" style="width: 17px; height: 17px;"></i>
+                    <span>Notifications</span>
+                    <span class="panel-badge-pill" id="panelNotifCount">{{ unread_notifications_count or 0 }} new</span>
+                </div>
+                <div class="panel-actions">
+                    <button class="panel-link-btn" id="markAllReadBtn" type="button">Mark all read</button>
+                    <button class="panel-close-btn" id="closeNotifPanel" type="button" aria-label="Close notifications">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="notifications-list" id="notificationsList">
+                {% if notifications and notifications|length > 0 %}
+                    {% for n in notifications %}
+                        <div class="notif-item {% if not n.read %}is-unread{% endif %}" data-id="{{ n.id }}">
+                            <div class="notif-icon notif-icon-{{ n.type or 'info' }}">
+                                <i data-lucide="{{ n.icon or 'bell' }}"></i>
+                            </div>
+                            <div class="notif-body">
+                                <div class="notif-top">
+                                    <strong class="notif-title">{{ n.title }}</strong>
+                                    <span class="notif-time">{{ n.time }}</span>
+                                </div>
+                                <p class="notif-msg">{{ n.message }}</p>
+                            </div>
+                            <button class="notif-dismiss-btn" type="button" title="Dismiss" data-dismiss="{{ n.id }}">
+                                <i data-lucide="x"></i>
+                            </button>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-panel-state">
+                        <i data-lucide="bell-off"></i>
+                        <p>No new notifications right now.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Slide-over Quick Notes Drawer (hidden on full notes page) -->
+        {% if request.endpoint != 'notes' %}
+        <div class="notes-drawer-backdrop" id="notesDrawerBackdrop"></div>
+        <div class="notes-drawer" id="notesDrawer" aria-hidden="true">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i data-lucide="notebook-pen" style="width: 17px; height: 17px;"></i>
+                    <span>Quick Notes</span>
+                    <span class="panel-badge-pill" id="drawerNotesCount">{{ state.notes|length if state.notes else 0 }}</span>
+                    <span class="live-sync-indicator" id="notesLiveIndicator" title="Real-time sync active">
+                        <span class="live-dot"></span> Live
+                    </span>
+                </div>
+                <div class="panel-actions">
+                    <button class="panel-icon-btn" id="refreshNotesDrawerBtn" type="button" title="Refresh notes in real-time">
+                        <i data-lucide="refresh-cw" style="width: 13px; height: 13px;"></i>
+                    </button>
+                    <a class="panel-link-btn" href="{{ url_for('notes', back=request.path) }}" title="Open full notebook page">
+                        <span>Full Page</span>
+                        <i data-lucide="external-link" style="width: 12px; height: 12px; margin-left: 2px;"></i>
+                    </a>
+                    <button class="panel-close-btn" id="closeNotesDrawer" type="button" aria-label="Close notes drawer">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Drawer Quick Note Form -->
+            <form id="drawerQuickNoteForm" class="drawer-note-composer">
+                <input type="hidden" id="drawerNoteCategory" value="Concept">
+                <div class="drawer-composer-top">
+                    <input type="text" id="drawerNoteTitle" placeholder="Title or concept..." value="{{ state.topic or '' }}" required>
+                </div>
+                <div class="drawer-category-pills">
+                    <button type="button" class="drawer-chip is-active" data-cat="Concept">📌 Concept</button>
+                    <button type="button" class="drawer-chip" data-cat="Insight">💡 Insight</button>
+                    <button type="button" class="drawer-chip" data-cat="Summary">📝 Summary</button>
+                    <button type="button" class="drawer-chip" data-cat="Formula">⚡ Formula</button>
+                </div>
+                <textarea id="drawerNoteContent" placeholder="Write your note here... (Markdown supported)" rows="3" required></textarea>
+                <div class="drawer-composer-footer">
+                    <span class="drawer-shortcut-hint">Ctrl + Enter to save</span>
+                    <button type="submit" class="primary-btn" id="drawerSubmitBtn" style="padding: 7px 15px; font-size: 13px; gap: 6px;">
+                        <i data-lucide="plus" style="width: 15px; height: 15px;"></i>
+                        <span>Save Note</span>
+                    </button>
+                </div>
+            </form>
+
+            <div class="drawer-search-box">
+                <i data-lucide="search"></i>
+                <input type="text" id="drawerNotesSearch" placeholder="Filter notes by title or content...">
+            </div>
+
+            <div class="drawer-notes-list" id="drawerNotesList">
+                {% if state.notes and state.notes|length > 0 %}
+                    {% for note in state.notes %}
+                        <div class="drawer-note-item" data-id="{{ note.id }}" data-topic="{{ note.topic }}" data-title="{{ note.title }}" data-content="{{ note.content }}">
+                            <div class="drawer-note-header">
+                                <span class="drawer-note-topic">{{ note.topic or 'General' }}</span>
+                                <span class="drawer-note-cat">{{ note.category or 'Concept' }}</span>
+                                <small class="drawer-note-time">{{ note.created_at or '' }}</small>
+                            </div>
+                            <h4 class="drawer-note-title">{{ note.title }}</h4>
+                            <p class="drawer-note-text">{{ note.content }}</p>
+                            <div class="drawer-note-actions">
+                                <button type="button" class="drawer-copy-btn" title="Copy text" data-copy="{{ note.content }}"><i data-lucide="copy"></i> Copy</button>
+                                <button type="button" class="drawer-del-btn" title="Delete note" data-del="{{ note.id }}"><i data-lucide="trash-2"></i></button>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-panel-state" id="drawerEmptyState">
+                        <i data-lucide="notebook-tabs"></i>
+                        <p>No notes saved yet.<br><small>Write above or highlight lesson text to save instantly.</small></p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Floating Text Selection Note Popup -->
+        <div class="selection-note-popup" id="selectionNotePopup">
+            <button type="button" class="selection-note-btn" id="selectionNoteBtn">
+                <i data-lucide="notebook-pen" style="width: 13px; height: 13px;"></i>
+                <span>Save to Notes</span>
+            </button>
+        </div>
+
         {% block content %}{% endblock %}
     </main>
 </div>

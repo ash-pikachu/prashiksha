@@ -163,8 +163,9 @@ class SessionManager:
         prog = self.db.query(UserProgress).filter_by(user_id=user_id, topic=topic).first()
         if prog:
             prog.sessions_count += 1
+            prog.last_visited = datetime.utcnow()
         else:
-            prog = UserProgress(user_id=user_id, topic=topic, sessions_count=1)
+            prog = UserProgress(user_id=user_id, topic=topic, sessions_count=1, last_visited=datetime.utcnow())
             self.db.add(prog)
         self.db.commit()
 
@@ -174,7 +175,7 @@ class SessionManager:
             prog.mastery_score = round((prog.mastery_score * 0.6) + (score * 0.4), 2)
             prog.last_visited = datetime.utcnow()
         else:
-            prog = UserProgress(user_id=user_id, topic=topic, mastery_score=score)
+            prog = UserProgress(user_id=user_id, topic=topic, mastery_score=score, last_visited=datetime.utcnow())
             self.db.add(prog)
         self.db.commit()
 
@@ -189,6 +190,49 @@ class SessionManager:
             }
             for e in entries
         ]
+
+    def get_past_topics(self, user_id: int, limit: int = 8) -> list[dict]:
+        """
+        Returns list of past topics learned by the user,
+        ordered by most recently visited.
+        """
+        entries = (
+            self.db.query(UserProgress)
+            .filter_by(user_id=user_id)
+            .order_by(UserProgress.last_visited.desc())
+            .limit(limit)
+            .all()
+        )
+        results = [
+            {
+                "topic": e.topic,
+                "mastery_score": round(e.mastery_score or 0.0, 2),
+                "sessions_count": e.sessions_count or 1,
+                "last_visited": str(e.last_visited) if e.last_visited else None,
+            }
+            for e in entries
+            if e.topic
+        ]
+        existing = {r["topic"].strip().lower() for r in results}
+        if len(results) < limit:
+            sessions = (
+                self.db.query(Session)
+                .filter_by(user_id=user_id)
+                .order_by(Session.started_at.desc())
+                .all()
+            )
+            for s in sessions:
+                if s.topic and s.topic.strip().lower() not in existing:
+                    existing.add(s.topic.strip().lower())
+                    results.append({
+                        "topic": s.topic,
+                        "mastery_score": round(s.understanding_level or 0.5, 2),
+                        "sessions_count": 1,
+                        "last_visited": str(s.started_at) if s.started_at else None,
+                    })
+                    if len(results) >= limit:
+                        break
+        return results
 
     # ─── Roadmap ──────────────────────────────────────────────────────────────
 
@@ -262,7 +306,17 @@ class SessionManager:
                 "completed_steps": len(completed_steps),
                 "completed_titles": [s["title"] for s in completed_steps]
             },
-            "overall_progress": progress
+            "overall_progress": progress,
+            "quiz_attempts": [
+                {
+                    "question": a.question,
+                    "user_answer": a.user_answer,
+                    "correct_answer": a.correct_answer,
+                    "is_correct": a.is_correct,
+                    "score": a.score,
+                }
+                for a in attempts
+            ]
         }
 
     def close(self):

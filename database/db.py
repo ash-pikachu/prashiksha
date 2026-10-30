@@ -105,9 +105,9 @@ class RoadmapStep(Base):
 def get_engine():
     db_url = os.getenv(
         "DATABASE_URL",
-        "mysql+pymysql://root:password@localhost/ai_tutor_hub?charset=utf8mb4"
+        "mysql+pymysql://root:password@127.0.0.1/ai_tutor_hub?charset=utf8mb4"
     )
-    return create_engine(db_url, pool_pre_ping=True, pool_recycle=3600)
+    return create_engine(db_url, pool_pre_ping=True, pool_recycle=3600, connect_args={"connect_timeout": 2})
 
 def get_db_session():
     engine = get_engine()

@@ -1,0 +1,52 @@
+=== OLD ===
+:root {
+  --font-size: 16px;
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+  --card: #ffffff;
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #030213;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.0058 264.53);
+  --secondary-foreground: #030213;
+  --muted: #ececf0;
+  --muted-foreground: #717182;
+  --accent: #e9ebef;
+  --accent-foreground: #030213;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: transparent;
+  --input-background: #f3f3f5;
+  --switch-background: #cbced4;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: oklch(0.708 0 0);
+=== NEW ===
+:root {
+  --font-size: 16px;
+  --background: #0a0a14;
+  --foreground: #f0eeff;
+  --card: #12111f;
+  --card-foreground: #f0eeff;
+  --popover: #12111f;
+  --popover-foreground: #f0eeff;
+  --primary: #7c5cfc;
+  --primary-foreground: #ffffff;
+  --secondary: #1e1c30;
+  --secondary-foreground: #c4bfee;
+  --muted: #1a1828;
+  --muted-foreground: #8a84b4;
+  --accent: #f43f9a;
+  --accent-foreground: #ffffff;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(124, 92, 252, 0.18);
+  --input: transparent;
+  --input-background: #1a1828;
+  --switch-background: #3a3560;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #7c5cfc;

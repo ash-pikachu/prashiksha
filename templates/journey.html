@@ -4,15 +4,99 @@
 <section class="page-head">
     <p class="eyebrow">Session Complete</p>
     <h1>Your learning journey</h1>
-    <p class="page-copy">A quick snapshot of what you practiced and how your understanding changed.</p>
+    <p class="page-copy">A comprehensive snapshot of what you practiced, how your understanding changed, and your flashcard performance.</p>
 </section>
+
 <section class="stats-grid">
     <div class="stat"><strong>{{ journey_data.session_duration_minutes }}</strong><span>Minutes</span></div>
     <div class="stat"><strong>{{ journey_data.messages_exchanged }}</strong><span>Messages</span></div>
     <div class="stat"><strong>{{ journey_data.quiz_results.accuracy_percent|round }}%</strong><span>Quiz Accuracy</span></div>
     <div class="stat"><strong>{{ (journey_data.understanding_level * 100)|round }}%</strong><span>Mastery</span></div>
 </section>
-<article class="summary-box">{{ summary }}</article>
+
+<!-- Visual Graph Section for Flashcard Results -->
+<section class="journey-graph-card">
+    <div class="graph-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="graph-icon"><i data-lucide="bar-chart-2"></i></div>
+            <div>
+                <h2>Flashcard Performance Breakdown</h2>
+                <small>Visual graph of all flashcard questions on {{ journey_data.topic }}</small>
+            </div>
+        </div>
+        <div class="graph-legend">
+            <span class="legend-item"><i class="legend-dot correct"></i> Correct</span>
+            <span class="legend-item"><i class="legend-dot incorrect"></i> Incorrect</span>
+        </div>
+    </div>
+
+    {% set total_cards = journey_data.quiz_results.total_questions %}
+    {% set correct_cards = journey_data.quiz_results.correct_answers %}
+    {% set incorrect_cards = total_cards - correct_cards %}
+    {% set accuracy = journey_data.quiz_results.accuracy_percent|round %}
+
+    {% if total_cards > 0 %}
+    <div class="graph-visual-container">
+        <!-- Circular Donut Metric -->
+        <div class="donut-chart-box">
+            <div class="donut-chart" style="--correct-pct: {{ (correct_cards / total_cards * 100)|round }}%;">
+                <div class="donut-inner">
+                    <strong>{{ accuracy }}%</strong>
+                    <span>Accuracy</span>
+                </div>
+            </div>
+            <div class="donut-summary">
+                <div class="donut-stat">
+                    <span class="stat-num correct">{{ correct_cards }}</span>
+                    <span class="stat-label">Correct</span>
+                </div>
+                <div class="donut-stat">
+                    <span class="stat-num incorrect">{{ incorrect_cards }}</span>
+                    <span class="stat-label">Incorrect</span>
+                </div>
+                <div class="donut-stat">
+                    <span class="stat-num total">{{ total_cards }}</span>
+                    <span class="stat-label">Total Cards</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Question by Question Bar Graph -->
+        <div class="bars-chart-box">
+            <h3 style="font-size: 15px; margin: 0 0 14px; color: var(--ink);">Question-by-Question Results</h3>
+            <div class="question-bars-list">
+                {% for attempt in journey_data.get("quiz_attempts", []) %}
+                <div class="question-bar-item">
+                    <div class="bar-info">
+                        <span class="bar-q-num">Q{{ loop.index }}</span>
+                        <span class="bar-q-text" title="{{ attempt.question }}">{{ attempt.question }}</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill {{ 'fill-correct' if attempt.is_correct else 'fill-incorrect' }}" style="width: {{ '100%' if attempt.is_correct else '35%' }};">
+                            <span>{{ 'Correct' if attempt.is_correct else 'Incorrect' }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="no-graph-data">
+        <i data-lucide="help-circle"></i>
+        <p>No flashcard quiz attempts recorded for this session. Test yourself in the next class to view detailed graphs here!</p>
+    </div>
+    {% endif %}
+</section>
+
+<article class="summary-box">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: #7c5cfc; font-weight: 700;">
+        <i data-lucide="sparkles"></i>
+        <span>AI Session Evaluation</span>
+    </div>
+    {{ summary }}
+</article>
+
 <form method="post" action="{{ url_for('new_topic') }}">
     <button class="primary-btn" type="submit"><i data-lucide="book-open-check"></i> Study Another Topic</button>
 </form>

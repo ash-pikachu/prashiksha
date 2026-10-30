@@ -1,60 +1,1471 @@
 {% extends "base.html" %}
-{% block title %}Prashiksha | Start Learning{% endblock %}
+{% block title %}Prashiksha | Sign In{% endblock %}
 {% block body %}
-<main class="login-shell">
-    <section class="login-visual" aria-label="Prashiksha learning preview">
-        <nav class="brand-row">
-            <div class="brand-mark"><i data-lucide="graduation-cap"></i></div>
-            <span>Prashiksha</span>
-        </nav>
-        <div class="hero-copy">
-            <p class="eyebrow">E-schooling that adapts to you</p>
-            <h1>Learn brighter with Prashiksha.</h1>
-            <p>Meet your AI tutor for explanations, roadmaps, practice, flashcards, and revision in your preferred language.</p>
-        </div>
-        <div class="classroom-board">
-            <div class="board-toolbar">
-                <span></span><span></span><span></span>
-            </div>
-            <div class="lesson-line strong">Today: Python Basics</div>
-            <div class="lesson-line">1. Understand variables</div>
-            <div class="lesson-line">2. Try a small example</div>
-            <div class="lesson-line">3. Check with flashcards</div>
-        </div>
-    </section>
+<!-- Google Fonts for Outfit and Playfair Display -->
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
 
-    <section class="login-panel">
-        <div class="panel-card">
-            <div class="form-heading">
-                <p class="eyebrow">Student Login</p>
-                <h2>Begin your class</h2>
+<div class="figma-login-container">
+    <!-- CSS styles matching the Figma make prototype exactly -->
+    <style>
+        .figma-login-container {
+            position: relative;
+            min-height: 100vh;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px 20px;
+            overflow: hidden;
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #f5f3ff 0%, #fce7f3 50%, #eff6ff 100%);
+            box-sizing: border-box;
+        }
+
+        /* Animations */
+        @keyframes floatY {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50%       { transform: translateY(-14px) rotate(6deg); }
+        }
+        @keyframes shimmer {
+            0%   { background-position: -200% center; }
+            100% { background-position:  200% center; }
+        }
+        @keyframes fadeSlideLeft {
+            from { opacity: 0; transform: translateX(-30px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes quoteFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes quoteFadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to   { opacity: 0; transform: translateY(-10px); }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shimmerBtn {
+            0%   { background-position: -200% center; }
+            100% { background-position:  200% center; }
+        }
+        @keyframes blobDrift {
+            0%, 100% { transform: translate(0,0) scale(1); }
+            33%       { transform: translate(25px,-20px) scale(1.08); }
+            66%       { transform: translate(-18px,14px) scale(0.95); }
+        }
+        @keyframes btnPulse {
+            0%, 100% { box-shadow: 0 6px 24px rgba(124,92,252,0.35); }
+            50%       { box-shadow: 0 6px 36px rgba(244,63,154,0.48); }
+        }
+        @keyframes quoteProgress {
+            from { width: 0%; }
+            to   { width: 100%; }
+        }
+
+        /* Elements */
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.4;
+            filter: blur(80px);
+            animation: blobDrift var(--dur) ease-in-out infinite;
+        }
+
+        /* EXPANDED SIZED CARD */
+        .figma-login-card {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            border-radius: 28px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 10px 40px -10px rgba(124,92,252,0.18), 0 30px 80px -15px rgba(124,92,252,0.22), 0 0 0 1px rgba(124,92,252,0.08);
+            width: 100%;
+            max-width: 1060px;
+            max-height: calc(100vh - 32px);
+            margin: 0;
+            animation: slideUp 0.65s cubic-bezier(0.22,1,0.36,1) both;
+        }
+
+        /* Left brand panel */
+        .brand-panel {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            width: 48%;
+            flex-shrink: 0;
+            padding: 28px 36px 98px 36px;
+            overflow: hidden;
+            background: linear-gradient(150deg, #6d44f8 0%, #8b5cf6 35%, #d946ef 70%, #f43f9a 100%);
+            color: white;
+            user-select: none;
+        }
+
+        .floater {
+            position: absolute;
+            pointer-events: none;
+            opacity: 0.22;
+            animation: floatY var(--dur) var(--delay) ease-in-out infinite;
+        }
+
+        .brand-header {
+            animation: fadeSlideLeft 0.7s cubic-bezier(0.22,1,0.36,1) both;
+        }
+
+        .brand-logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .brand-logo-badge {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.6);
+            box-shadow: 0 8px 22px rgba(0,0,0,0.18);
+            padding: 4px;
+            overflow: hidden;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .brand-logo-badge:hover {
+            transform: scale(1.06) rotate(-2deg);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.24);
+        }
+
+        .brand-logo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .brand-logo-text {
+            font-size: 15px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            opacity: 0.95;
+            color: #ffffff;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .login-panel-brand-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid rgba(139, 92, 246, 0.12);
+        }
+
+        .login-panel-brand-badge {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+            border: 1px solid rgba(124, 92, 252, 0.25);
+            box-shadow: 0 4px 14px rgba(124, 92, 252, 0.12);
+            padding: 4px;
+            overflow: hidden;
+            flex-shrink: 0;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .login-panel-brand-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(124, 92, 252, 0.22);
+        }
+
+        .login-panel-brand-badge img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .login-panel-brand-name {
+            font-size: 19px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #1e1b4b 0%, #4f46e5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: block;
+            line-height: 1.2;
+        }
+
+        .login-panel-brand-tag {
+            font-size: 11.5px;
+            color: #8b5cf6;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            display: block;
+        }
+
+        .brand-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2.4rem, 4.2vw, 3.4rem);
+            font-weight: 800;
+            line-height: 1.05;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #ffffff 0%, #e0e7ff 45%, #fbcfe8 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 5s linear infinite;
+        }
+
+        .brand-desc {
+            font-size: 14.5px;
+            line-height: 1.5;
+            opacity: 0.88;
+            max-width: 360px;
+        }
+
+        /* ─── Overlapping Interactive Shapes (Rectangle, Circle, Triangle) with Eyes ─── */
+        .char-stage-wrapper {
+            position: relative;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 14px 0 16px 0;
+            animation: fadeSlideLeft 0.7s cubic-bezier(0.22,1,0.36,1) both;
+            animation-delay: 0.15s;
+        }
+
+        .char-stage {
+            position: relative;
+            width: 290px;
+            height: 124px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            transform-origin: center bottom;
+        }
+
+        .char-shape {
+            position: absolute;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+        }
+
+        .char-shape:hover {
+            transform: scale(1.05) !important;
+        }
+
+        /* 1. RECTANGLE (Left - Indigo/Purple) */
+        .char-rectangle {
+            left: 20px;
+            width: 86px;
+            height: 104px;
+            background: linear-gradient(160deg, #4f46e5, #3730a3);
+            border-radius: 14px;
+            border: 2.5px solid rgba(255,255,255,0.45);
+            box-shadow: 0 14px 30px rgba(0,0,0,0.22);
+            z-index: 1;
+        }
+
+        /* 2. CIRCLE (Center - Fuchsia/Pink in foreground) */
+        .char-circle {
+            left: 88px;
+            width: 108px;
+            height: 108px;
+            background: linear-gradient(160deg, #ec4899, #be185d);
+            border-radius: 50%;
+            border: 2.5px solid rgba(255,255,255,0.45);
+            box-shadow: 0 16px 36px rgba(190,24,93,0.42);
+            z-index: 3;
+        }
+
+        /* 3. TRIANGLE (Right - Cyan/Blue) */
+        .char-triangle {
+            right: 18px;
+            width: 98px;
+            height: 106px;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            z-index: 2;
+        }
+
+        .triangle-svg-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 14px 26px rgba(2, 132, 199, 0.38));
+            z-index: 1;
+        }
+
+        .triangle-face {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 18px;
+        }
+
+        /* ERROR STATE: 2 rounds of right-to-left shake with decreased distance (7-8px max) */
+        .stage-shaking .char-rectangle {
+            animation: errShakeRect2Rounds 0.65s ease-in-out 1 both !important;
+        }
+        .stage-shaking .char-circle {
+            animation: errShakeCircle2Rounds 0.65s ease-in-out 1 both !important;
+        }
+        .stage-shaking .char-triangle {
+            animation: errShakeTri2Rounds 0.65s ease-in-out 1 both !important;
+        }
+
+        /* 2 rounds: Round 1 (0% -> 50%), Round 2 (50% -> 100%). Distance decreased to 7-8px */
+        @keyframes errShakeRect2Rounds {
+            0%   { transform: translateX(0); }
+            12%  { transform: translateX(-8px); } /* Round 1 left */
+            25%  { transform: translateX(7px); }  /* Round 1 right */
+            38%  { transform: translateX(-4px); }
+            50%  { transform: translateX(0); }    /* Round 1 completes */
+            62%  { transform: translateX(-8px); } /* Round 2 left */
+            75%  { transform: translateX(7px); }  /* Round 2 right */
+            88%  { transform: translateX(-3px); }
+            100% { transform: translateX(0); }    /* Round 2 completes */
+        }
+
+        @keyframes errShakeCircle2Rounds {
+            0%   { transform: translateX(0); }
+            12%  { transform: translateX(8px); }  /* Round 1 right (opposite direction) */
+            25%  { transform: translateX(-7px); } /* Round 1 left */
+            38%  { transform: translateX(4px); }
+            50%  { transform: translateX(0); }    /* Round 1 completes */
+            62%  { transform: translateX(8px); }  /* Round 2 right */
+            75%  { transform: translateX(-7px); } /* Round 2 left */
+            88%  { transform: translateX(3px); }
+            100% { transform: translateX(0); }    /* Round 2 completes */
+        }
+
+        @keyframes errShakeTri2Rounds {
+            0%   { transform: translateX(0); }
+            12%  { transform: translateX(-7px); } /* Round 1 left */
+            25%  { transform: translateX(8px); }  /* Round 1 right */
+            38%  { transform: translateX(-5px); }
+            50%  { transform: translateX(0); }    /* Round 1 completes */
+            62%  { transform: translateX(-7px); } /* Round 2 left */
+            75%  { transform: translateX(8px); }  /* Round 2 right */
+            88%  { transform: translateX(-4px); }
+            100% { transform: translateX(0); }    /* Round 2 completes */
+        }
+
+        /* Character Face Elements */
+        .char-face {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 24px;
+        }
+
+        .char-circle .char-face {
+            padding-top: 26px;
+        }
+
+        .eye-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+        }
+
+        .char-circle .eye-row {
+            gap: 9px;
+        }
+
+        /* White Eye Circle */
+        .interactive-eye {
+            width: 23px;
+            height: 23px;
+            background: #ffffff;
+            border-radius: 50%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.18);
+            overflow: hidden;
+            animation: eyeBlink 4.5s ease-in-out infinite;
+            transform-origin: center;
+            transition: transform 0.2s ease;
+        }
+
+        .char-circle .interactive-eye {
+            width: 27px;
+            height: 27px;
+            animation-delay: 0.9s;
+        }
+
+        .char-triangle .interactive-eye {
+            width: 22px;
+            height: 22px;
+            animation-delay: 1.8s;
+        }
+
+        @keyframes eyeBlink {
+            0%, 93%, 100% { transform: scaleY(1); }
+            96%           { transform: scaleY(0.08); }
+        }
+
+        /* Startled eyes in error state */
+        .stage-error .interactive-eye {
+            animation: eyeStartled 0.65s ease-in-out !important;
+        }
+
+        @keyframes eyeStartled {
+            0%, 100% { transform: scale(1); }
+            35%      { transform: scale(1.18); }
+        }
+
+        /* Black Pupil inside the eye */
+        .eye-pupil {
+            width: 11px;
+            height: 11px;
+            background: #0f172a;
+            border-radius: 50%;
+            position: absolute;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-end;
+            padding: 1px;
+            pointer-events: none;
+            will-change: transform;
+            transition: transform 0.05s cubic-bezier(0.2, 0, 0.2, 1);
+        }
+
+        .char-circle .eye-pupil {
+            width: 13px;
+            height: 13px;
+        }
+
+        .char-triangle .eye-pupil {
+            width: 10px;
+            height: 10px;
+        }
+
+        .pupil-glint {
+            width: 3.5px;
+            height: 3.5px;
+            background: #ffffff;
+            border-radius: 50%;
+            opacity: 0.95;
+            margin: 1px 1px 0 0;
+        }
+
+        /* Mouths: Normal vs Wavy */
+        .char-mouth {
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 10px;
+            position: relative;
+        }
+
+        .mouth-normal {
+            display: block;
+            transition: opacity 0.2s ease;
+        }
+
+        .mouth-wavy {
+            display: none;
+            overflow: hidden;
+            border-radius: 4px;
+        }
+
+        /* In Error State: Wavy Mouth is visible as long as error is not cleared */
+        .stage-error .mouth-normal {
+            display: none !important;
+        }
+
+        .stage-error .mouth-wavy {
+            display: block !important;
+        }
+
+        /* Wavy mouth waves / undulates ONLY during the 2 rounds of shaking! */
+        .stage-shaking .wave-track {
+            display: block;
+            will-change: transform;
+            animation: waveFlow 0.32s linear infinite;
+        }
+
+        .stage-shaking .wave-rect .wave-track {
+            animation-duration: 0.32s;
+        }
+
+        .stage-shaking .wave-circle .wave-track {
+            animation-duration: 0.28s;
+            animation-direction: reverse; /* Waves in opposite direction */
+        }
+
+        .stage-shaking .wave-tri .wave-track {
+            animation-duration: 0.30s;
+        }
+
+        @keyframes waveFlow {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-16px); }
+        }
+
+        .stage-shaking .wave-track path {
+            animation: waveVerticalWobble 0.28s ease-in-out infinite alternate;
+            transform-origin: center;
+        }
+
+        @keyframes waveVerticalWobble {
+            0%   { transform: scaleY(0.9); }
+            100% { transform: scaleY(1.35); }
+        }
+
+        .char-cheeks {
+            display: flex;
+            justify-content: space-between;
+            width: 48px;
+            margin-top: -6px;
+            pointer-events: none;
+        }
+
+        .cheek {
+            width: 7px;
+            height: 4px;
+            background: rgba(255, 192, 203, 0.7);
+            border-radius: 50%;
+            filter: blur(0.5px);
+        }
+
+        /* Quote box - Anchored to bottom with fixed height so quote text changes never shift or push shapes */
+        .quote-box {
+            position: absolute;
+            bottom: 20px;
+            left: 36px;
+            right: 36px;
+            background: rgba(255,255,255,0.12);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 16px;
+            padding: 10px 16px;
+            height: 64px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow: hidden;
+            z-index: 5;
+            animation: fadeSlideLeft 0.7s cubic-bezier(0.22,1,0.36,1) both;
+            animation-delay: 0.25s;
+        }
+
+        .quote-progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            background: rgba(255,255,255,0.35);
+            width: 100%;
+        }
+
+        .quote-progress-fill {
+            height: 100%;
+            background: white;
+            width: 0%;
+            animation: quoteProgress 4s linear forwards;
+        }
+
+        .quote-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 12px;
+            font-style: italic;
+            line-height: 1.35;
+            opacity: 0.92;
+            transition: opacity 0.3s;
+            margin: 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .quote-author {
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0.65;
+            margin-top: 3px;
+            margin-bottom: 0;
+        }
+
+        .quote-in { animation: quoteFadeIn 0.55s cubic-bezier(0.22,1,0.36,1) both; }
+        .quote-out { animation: quoteFadeOut 0.4s ease-in both; }
+
+        /* ─── Right Form Panel ─── */
+        .login-form-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 28px 46px;
+            background: white;
+            overflow-y: auto;
+        }
+
+        .form-title {
+            font-size: 26px;
+            font-weight: 800;
+            color: #1a0a4e;
+            margin-bottom: 4px;
+            letter-spacing: -0.02em;
+        }
+
+        .form-subtitle {
+            font-size: 14px;
+            color: #8a84b4;
+            margin-bottom: 16px;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 11px;
+        }
+
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .field-label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .label-purple { color: #7c5cfc; }
+        .label-pink { color: #f43f9a; }
+
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-radius: 12px;
+            padding: 10px 14px;
+            transition: all 0.20s ease;
+            background: #f7f6fe;
+            border: 1.5px solid rgba(124,92,252,0.16);
+        }
+
+        .input-wrapper-pink {
+            background: #fff6fa;
+            border: 1.5px solid rgba(244,63,154,0.16);
+        }
+
+        .input-wrapper:focus-within {
+            border-color: #7c5cfc;
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(124,92,252,0.14);
+        }
+
+        .input-wrapper-pink:focus-within {
+            border-color: #f43f9a;
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(244,63,154,0.14);
+        }
+
+        /* Field Error States */
+        .has-error .input-wrapper,
+        .has-error .input-wrapper-pink {
+            border-color: #ef4444 !important;
+            background: #fff1f2 !important;
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.16) !important;
+            animation: fieldShake 0.45s ease-in-out both;
+        }
+
+        .has-error .field-label {
+            color: #ef4444 !important;
+        }
+
+        @keyframes fieldShake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        .field-error-text {
+            display: none;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #ef4444;
+            margin-top: 2px;
+            animation: fadeSlideLeft 0.3s ease both;
+        }
+
+        /* Preferred Language: only shown in Sign Up mode */
+        .field-group.signup-only {
+            display: none;
+        }
+
+        .login-form.mode-signup .field-group.signup-only {
+            display: flex;
+            animation: fadeSlideLeft 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
+        .input-wrapper input, .input-wrapper select {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-size: 15px;
+            color: #1a0a4e;
+            font-family: 'Outfit', sans-serif;
+            width: 100%;
+        }
+
+        .input-wrapper select {
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237c5cfc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 6px center;
+            padding-right: 28px;
+        }
+
+        .input-wrapper svg {
+            color: #a5a3c2;
+            flex-shrink: 0;
+            transition: color 0.2s;
+        }
+
+        .input-wrapper:focus-within svg {
+            color: #7c5cfc;
+        }
+
+        .input-wrapper-pink:focus-within svg {
+            color: #f43f9a;
+        }
+
+        .checkbox-container {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            margin-top: 4px;
+            user-select: none;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .checkbox-container input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+            pointer-events: none;
+            margin: 0;
+        }
+
+        .custom-checkbox {
+            width: 18px;
+            height: 18px;
+            border-radius: 6px;
+            background: #f7f6fe;
+            border: 1.5px solid rgba(124,92,252,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .checkbox-container:hover .custom-checkbox {
+            border-color: #7c5cfc;
+            background: #ede9fe;
+        }
+
+        .checkbox-container input:checked + .custom-checkbox {
+            background: linear-gradient(135deg, #7c5cfc, #6366f1);
+            border-color: #7c5cfc;
+            box-shadow: 0 2px 6px rgba(124,92,252,0.3);
+        }
+
+        .custom-checkbox svg {
+            width: 12px;
+            height: 12px;
+            stroke: white;
+            stroke-width: 3;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.15s ease;
+        }
+
+        .checkbox-container input:checked + .custom-checkbox svg {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .checkbox-text {
+            font-size: 13px;
+            color: #8a84b4;
+            transition: color 0.15s ease;
+        }
+
+        .checkbox-container:hover .checkbox-text {
+            color: #1a0a4e;
+        }
+
+        .submit-btn {
+            background: linear-gradient(90deg, #7c5cfc, #f43f9a, #818cf8, #7c5cfc);
+            background-size: 300% 100%;
+            animation: shimmerBtn 3s linear infinite;
+            border-radius: 12px;
+            padding: 11px 18px;
+            font-size: 14.5px;
+            font-weight: 700;
+            color: white;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 4px;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px) scale(1.01);
+            filter: brightness(1.08);
+            animation: shimmerBtn 3s linear infinite, btnPulse 2s ease-in-out infinite;
+        }
+
+        .submit-btn:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        /* Divider */
+        .or-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 10px 0;
+        }
+
+        .or-line {
+            flex: 1;
+            height: 1px;
+            background: rgba(124,92,252,0.14);
+        }
+
+        .or-text {
+            font-size: 12px;
+            color: #b0acd4;
+        }
+
+        /* Google SSO button */
+        .google-btn {
+            background: #faf8ff;
+            border: 1.5px solid rgba(124,92,252,0.16);
+            color: #1a0a4e;
+            border-radius: 12px;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            outline: none;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+        }
+
+        .google-btn:hover {
+            transform: translateY(-2px);
+            background: #f4f0ff;
+            border-color: #7c5cfc;
+            box-shadow: 0 8px 24px rgba(124,92,252,0.15);
+        }
+
+        .google-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Footer link */
+        .footer-text {
+            text-align: center;
+            font-size: 13px;
+            color: #8a84b4;
+            margin-top: 10px;
+        }
+
+        .signup-link {
+            font-weight: 700;
+            color: #7c5cfc;
+            background: none;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 0;
+            font-family: inherit;
+            transition: all 0.15s ease;
+        }
+
+        .signup-link:hover {
+            color: #f43f9a;
+            text-decoration: underline;
+        }
+
+        /* Alert state */
+        .error-alert {
+            background: #fff0f3;
+            border: 1.5px solid rgba(212,24,61,0.2);
+            color: #d4183d;
+            padding: 12px 16px;
+            border-radius: 14px;
+            font-size: 13.5px;
+            text-align: center;
+            margin-bottom: 14px;
+        }
+
+        /* Responsiveness */
+        @media (max-width: 900px) {
+            .figma-login-container {
+                height: auto;
+                min-height: 100vh;
+                overflow-y: auto;
+                padding: 24px 16px;
+            }
+            .figma-login-card {
+                flex-direction: column;
+                max-width: 480px;
+                max-height: none;
+            }
+            .brand-panel {
+                width: 100%;
+                padding: 24px 20px 92px 20px;
+            }
+            .quote-box {
+                left: 20px;
+                right: 20px;
+                bottom: 16px;
+            }
+            .login-form-panel {
+                padding: 24px 20px;
+            }
+        }
+
+        @media (max-height: 680px) and (min-width: 901px) {
+            .figma-login-container {
+                height: auto;
+                min-height: 100vh;
+                overflow-y: auto;
+            }
+            .figma-login-card {
+                max-height: none;
+            }
+        }
+    </style>
+
+    <!-- Drift Blobs -->
+    <div class="blob" style="background: #c4b5fd; left: -5%; top: -8%; width: 520px; height: 520px; --dur: 12s;"></div>
+    <div class="blob" style="background: #fbcfe8; left: 65%; top: 60%; width: 440px; height: 440px; --dur: 15s;"></div>
+    <div class="blob" style="background: #bae6fd; left: 45%; top: -10%; width: 360px; height: 360px; --dur: 10s;"></div>
+
+    <!-- Subtle Dot Grid Overlay -->
+    <div class="absolute inset-0 pointer-events-none" style="background-image: radial-gradient(circle, rgba(124,92,252,0.12) 1px, transparent 1px); background-size: 32px 32px;"></div>
+
+    <!-- The Split Card Container (Increased Size) -->
+    <div class="figma-login-card">
+        <!-- LEFT: Brand Panel -->
+        <div class="brand-panel">
+            <!-- Floater Icons -->
+            <div class="floater" style="left: 10%; top: 12%; --dur: 4s; --delay: 0s;"><i data-lucide="book-open" size="38" stroke-width="1.5"></i></div>
+            <div class="floater" style="left: 78%; top: 8%; --dur: 5s; --delay: 0.8s;"><i data-lucide="graduation-cap" size="34" stroke-width="1.5"></i></div>
+            <div class="floater" style="left: 84%; top: 48%; --dur: 3.5s; --delay: 1.4s;"><i data-lucide="star" size="26" stroke-width="1.5"></i></div>
+            <div class="floater" style="left: 8%; top: 58%; --dur: 4.5s; --delay: 0.4s;"><i data-lucide="zap" size="28" stroke-width="1.5"></i></div>
+
+            <!-- Brand Header -->
+            <div class="brand-header">
+                <div class="brand-logo-container">
+                    <div class="brand-logo-badge">
+                        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Prashiksha Logo" class="brand-logo-img" width="36" height="36">
+                    </div>
+                    <span class="brand-logo-text">Prashiksha</span>
+                </div>
+                <h1 class="brand-title">Prashiksha</h1>
+                <p class="brand-desc">Your gateway to academic excellence — personalized, adaptive, and multilingual.</p>
             </div>
+
+            <!-- Overlapping Shape Characters (Rectangle, Circle, Triangle) with Eyes that Follow Cursor -->
+            <div class="char-stage-wrapper" id="charactersStageWrapper">
+                <div class="char-stage" id="charactersStage">
+                    <!-- 1. Left Buddy: RECTANGLE (Indigo) -->
+                    <div class="char-shape char-rectangle">
+                        <div class="char-face">
+                            <div class="eye-row">
+                                <div class="interactive-eye">
+                                    <div class="eye-pupil"><span class="pupil-glint"></span></div>
+                                </div>
+                                <div class="interactive-eye">
+                                    <div class="eye-pupil"><span class="pupil-glint"></span></div>
+                                </div>
+                            </div>
+                            <div class="char-mouth">
+                                <!-- Normal Smile -->
+                                <svg class="mouth-normal" width="16" height="7" viewBox="0 0 16 7">
+                                    <path d="M 2 2 Q 8 7 14 2" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+                                </svg>
+                                <!-- Wavy Animated Moving Wave Mouth -->
+                                <svg class="mouth-wavy wave-rect" width="24" height="10" viewBox="0 0 24 10">
+                                    <g class="wave-track">
+                                        <path d="M -16 5 Q -12 1 -8 5 T 0 5 T 8 5 T 16 5 T 24 5 T 32 5 T 40 5" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                                    </g>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Center Buddy: CIRCLE (Pink in foreground) -->
+                    <div class="char-shape char-circle">
+                        <div class="char-face">
+                            <div class="eye-row">
+                                <div class="interactive-eye">
+                                    <div class="eye-pupil"><span class="pupil-glint"></span></div>
+                                </div>
+                                <div class="interactive-eye">
+                                    <div class="eye-pupil"><span class="pupil-glint"></span></div>
+                                </div>
+                            </div>
+                            <div class="char-cheeks">
+                                <span class="cheek"></span>
+                                <span class="cheek"></span>
+                            </div>
+                            <div class="char-mouth">
+                                <!-- Normal Happy Open Smile -->
+                                <svg class="mouth-normal" width="18" height="8" viewBox="0 0 18 8">
+                                    <path d="M 2 2 Q 9 8 16 2" fill="rgba(0,0,0,0.2)" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+                                </svg>
+                                <!-- Wavy Animated Moving Wave Mouth -->
+                                <svg class="mouth-wavy wave-circle" width="26" height="10" viewBox="0 0 26 10">
+                                    <g class="wave-track">
+                                        <path d="M -16 5 Q -12 1 -8 5 T 0 5 T 8 5 T 16 5 T 24 5 T 32 5 T 40 5" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                                    </g>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Right Buddy: TRIANGLE (Cyan) -->
+                    <div class="char-shape char-triangle">
+                        <svg class="triangle-svg-bg" viewBox="0 0 100 106" preserveAspectRatio="none">
+                            <defs>
+                                <linearGradient id="triGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#06b6d4" />
+                                    <stop offset="100%" stop-color="#0284c7" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M 50 6 C 54 6, 57 10, 59 14 L 95 82 C 97 87, 95 94, 89 94 L 11 94 C 5 94, 3 87, 5 82 L 41 14 C 43 10, 46 6, 50 6 Z"
+                                  fill="url(#triGrad)" stroke="rgba(255,255,255,0.45)" stroke-width="2.5" />
+                        </svg>
+                        <div class="triangle-face">
+                            <div class="eye-row">
+                                <div class="interactive-eye">
+                                    <div class="eye-pupil"><span class="pupil-glint"></span></div>
+                                </div>
+                                <div class="interactive-eye">
+                                    <div class="eye-pupil"><span class="pupil-glint"></span></div>
+                                </div>
+                            </div>
+                            <div class="char-mouth">
+                                <!-- Normal Playful Smirk -->
+                                <svg class="mouth-normal" width="14" height="6" viewBox="0 0 14 6">
+                                    <path d="M 2 1.5 Q 7 5.5 12 2" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <!-- Wavy Animated Moving Wave Mouth -->
+                                <svg class="mouth-wavy wave-tri" width="22" height="10" viewBox="0 0 22 10">
+                                    <g class="wave-track">
+                                        <path d="M -16 5 Q -12 1 -8 5 T 0 5 T 8 5 T 16 5 T 24 5 T 32 5 T 40 5" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                                    </g>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- Rotating quote block -->
+            <div class="quote-box">
+                <div class="quote-progress-bar">
+                    <div class="quote-progress-fill" id="quoteProgress"></div>
+                </div>
+                <p class="quote-text" id="quoteText">"Education is the most powerful weapon which you can use to change the world."</p>
+                <p class="quote-author" id="quoteAuthor">— Nelson Mandela</p>
+            </div>
+        </div>
+
+        <!-- RIGHT: Login & Sign Up Form Panel -->
+        <div class="login-form-panel">
+            <div class="login-panel-brand-header">
+                <div class="login-panel-brand-badge">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Prashiksha Logo" width="34" height="34">
+                </div>
+                <div>
+                    <span class="login-panel-brand-name">Prashiksha</span>
+                    <span class="login-panel-brand-tag">Intelligent AI Learning Hub</span>
+                </div>
+            </div>
+
+            <h2 class="form-title" id="formHeaderTitle">Sign in to your account</h2>
+            <p class="form-subtitle" id="formHeaderSubtitle">Continue your learning journey</p>
+
             {% if error %}
-                <div class="alert">{{ error }}</div>
+                <div class="error-alert">{{ error }}</div>
             {% endif %}
-            <form method="post" action="{{ url_for('submit_login') }}" class="login-form">
-                <label>
-                    <span>Name</span>
-                    <input name="name" type="text" placeholder="Rohan Sharma" autocomplete="name" required>
+
+            <form method="post" action="{{ url_for('submit_login') }}" class="login-form" id="loginForm" novalidate>
+                <!-- Name -->
+                <div class="field-group" id="nameFieldGroup">
+                    <label class="field-label label-purple">Student Name</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="user" style="width: 17px; height: 17px;"></i>
+                        <input name="name" id="nameInput" type="text" placeholder="Rohan Sharma" autocomplete="name" required>
+                    </div>
+                    <span class="field-error-text" id="nameErrorText">Please enter your name</span>
+                </div>
+
+                <!-- Gmail -->
+                <div class="field-group" id="emailFieldGroup">
+                    <label class="field-label label-pink">Gmail Address</label>
+                    <div class="input-wrapper input-wrapper-pink">
+                        <i data-lucide="mail" style="width: 17px; height: 17px;"></i>
+                        <input name="email" id="emailInput" type="email" placeholder="rohan@gmail.com" autocomplete="email" required>
+                    </div>
+                    <span class="field-error-text" id="emailErrorText">Please enter a valid Gmail address</span>
+                </div>
+
+                <!-- Preferred language (Sign Up Only) -->
+                <div class="field-group signup-only" id="languageFieldGroup">
+                    <label class="field-label label-purple">Preferred language</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="languages" style="width: 17px; height: 17px;"></i>
+                        <select name="language" id="languageSelect">
+                            {% for code, label in languages.items() %}
+                                <option value="{{ code }}" {% if code == 'en' %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Remember me -->
+                <label class="checkbox-container">
+                    <input type="checkbox" name="remember_me" checked>
+                    <span class="custom-checkbox">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </span>
+                    <span class="checkbox-text">Remember me on this device</span>
                 </label>
-                <label>
-                    <span>Gmail</span>
-                    <input name="email" type="email" placeholder="rohan@gmail.com" autocomplete="email" required>
-                </label>
-                <label>
-                    <span>Preferred language</span>
-                    <select name="language">
-                        {% for code, label in languages.items() %}
-                            <option value="{{ code }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
-                <button class="primary-btn" type="submit">
-                    <i data-lucide="sparkles"></i>
-                    Start Learning
+
+                <!-- Submit Button -->
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    Start Learning <i data-lucide="arrow-right" style="width: 16px; height: 16px;"></i>
                 </button>
             </form>
+
+            <div class="or-divider">
+                <div class="or-line"></div>
+                <span class="or-text">or continue with</span>
+                <div class="or-line"></div>
+            </div>
+
+            <!-- Google SSO button mockup -->
+            <button type="button" class="google-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24">
+                    <path fill="#EA4335" d="M5.27 9.76A7.08 7.08 0 0 1 12 4.9c1.76 0 3.35.63 4.6 1.67l3.41-3.41A12 12 0 0 0 0 12c0 1.99.49 3.86 1.35 5.51l3.92-3.04A7.1 7.1 0 0 1 5.27 9.76Z"/>
+                    <path fill="#FBBC05" d="M12 24c3.24 0 6.01-1.07 8.01-2.91l-3.91-3.03A7.11 7.11 0 0 1 5.26 14.5L1.35 17.5A12 12 0 0 0 12 24Z"/>
+                    <path fill="#4285F4" d="M23.76 12.27c0-.79-.07-1.56-.19-2.27H12v4.51h6.61a5.65 5.65 0 0 1-2.46 3.7l3.91 3.03C22.56 19.01 23.76 15.87 23.76 12.27Z"/>
+                    <path fill="#34A853" d="M5.26 14.5a7.13 7.13 0 0 1 0-4.74L1.34 6.72A12.02 12.02 0 0 0 0 12c0 1.93.46 3.76 1.35 5.51L5.26 14.5Z"/>
+                </svg>
+                Continue with Google
+            </button>
+
+            <p class="footer-text">
+                <span id="footerPrompt">New to Prashiksha?</span>
+                <button type="button" class="signup-link" id="toggleSignupMode">Create a free account</button>
+            </p>
         </div>
-    </section>
-</main>
+    </div>
+</div>
+
+<!-- Interactive Eye Tracking & Logic Scripts -->
+<script>
+    // ─── 1. Cursor Following Eyes Logic ─────────────────────────────
+    const pupils = document.querySelectorAll(".eye-pupil");
+
+    function updatePupils(clientX, clientY) {
+        pupils.forEach((pupil) => {
+            const eye = pupil.closest(".interactive-eye");
+            if (!eye) return;
+            const rect = eye.getBoundingClientRect();
+            const eyeCenterX = rect.left + rect.width / 2;
+            const eyeCenterY = rect.top + rect.height / 2;
+
+            const deltaX = clientX - eyeCenterX;
+            const deltaY = clientY - eyeCenterY;
+            const angle = Math.atan2(deltaY, deltaX);
+
+            // Maximum radius the pupil can travel inside the white sclera
+            const maxTravel = (rect.width - pupil.offsetWidth) / 2 - 1.2;
+            // Smooth distance response
+            const dist = Math.min(maxTravel, Math.hypot(deltaX, deltaY) / 14);
+
+            const pupilX = Math.cos(angle) * dist;
+            const pupilY = Math.sin(angle) * dist;
+
+            pupil.style.transform = `translate(${pupilX}px, ${pupilY}px)`;
+        });
+    }
+
+    // Follow mouse cursor
+    window.addEventListener("mousemove", (e) => {
+        updatePupils(e.clientX, e.clientY);
+    });
+
+    // Touch support for mobile/tablets
+    window.addEventListener("touchmove", (e) => {
+        if (e.touches && e.touches[0]) {
+            updatePupils(e.touches[0].clientX, e.touches[0].clientY);
+        }
+    }, { passive: true });
+
+    // Focus tracking: when user focuses on an input, eyes look toward the focused field
+    const formFields = document.querySelectorAll(".login-form input, .login-form select, .login-form button");
+    formFields.forEach(field => {
+        field.addEventListener("focus", () => {
+            const rect = field.getBoundingClientRect();
+            updatePupils(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        });
+    });
+
+    // ─── 2. Error Shake, Wavy Mouths, & Return to Normal Logic ───────
+    const loginForm = document.getElementById("loginForm");
+    const nameInput = document.getElementById("nameInput");
+    const emailInput = document.getElementById("emailInput");
+    const nameGroup = document.getElementById("nameFieldGroup");
+    const emailGroup = document.getElementById("emailFieldGroup");
+    const nameErrorText = document.getElementById("nameErrorText");
+    const emailErrorText = document.getElementById("emailErrorText");
+    const stageWrapper = document.getElementById("charactersStageWrapper");
+    let shakeRoundsTimer = null;
+
+    function triggerShapeErrorShake() {
+        if (!stageWrapper) return;
+        // Keep wavy mouth visible as long as error is present
+        stageWrapper.classList.add("stage-error");
+
+        // Trigger active 2-round horizontal shake & mouth ripple
+        stageWrapper.classList.remove("stage-shaking");
+        void stageWrapper.offsetWidth; // trigger reflow for clean restart
+        stageWrapper.classList.add("stage-shaking");
+
+        if (shakeRoundsTimer) {
+            clearTimeout(shakeRoundsTimer);
+        }
+        // Exactly 2 rounds: after 650ms, shaking and mouth waving ripple stop
+        shakeRoundsTimer = setTimeout(() => {
+            stageWrapper.classList.remove("stage-shaking");
+            shakeRoundsTimer = null;
+            // The static wavy mouth remains visible via stage-error until field clicked
+        }, 650);
+    }
+
+    function clearStageErrorCompletely() {
+        if (!stageWrapper) return;
+        if (shakeRoundsTimer) {
+            clearTimeout(shakeRoundsTimer);
+            shakeRoundsTimer = null;
+        }
+        stageWrapper.classList.remove("stage-shaking");
+        stageWrapper.classList.remove("stage-error");
+    }
+
+    if (loginForm) {
+        loginForm.addEventListener("submit", (e) => {
+            let hasError = false;
+
+            // Validate Name
+            const nameVal = nameInput ? nameInput.value.trim() : "";
+            if (!nameVal) {
+                if (nameGroup) nameGroup.classList.add("has-error");
+                if (nameErrorText) nameErrorText.textContent = "Please enter your student name";
+                hasError = true;
+            } else {
+                if (nameGroup) nameGroup.classList.remove("has-error");
+            }
+
+            // Validate Email
+            const emailVal = emailInput ? emailInput.value.trim() : "";
+            if (!emailVal) {
+                if (emailGroup) emailGroup.classList.add("has-error");
+                if (emailErrorText) emailErrorText.textContent = "Please enter your Gmail address";
+                hasError = true;
+            } else if (!emailVal.includes("@") || !emailVal.includes(".")) {
+                if (emailGroup) emailGroup.classList.add("has-error");
+                if (emailErrorText) emailErrorText.textContent = "Please enter a valid email address (e.g. rohan@gmail.com)";
+                hasError = true;
+            } else {
+                if (emailGroup) emailGroup.classList.remove("has-error");
+            }
+
+            if (hasError) {
+                e.preventDefault();
+                // Trigger shapes shake and wavy mouths!
+                triggerShapeErrorShake();
+                return false;
+            }
+        });
+    }
+
+    // "backs to normal when i click the feild where is problem"
+    [nameInput, emailInput].forEach((input) => {
+        if (!input) return;
+        const group = input.closest(".field-group");
+
+        const clearCurrentFieldError = () => {
+            if (group && group.classList.contains("has-error")) {
+                group.classList.remove("has-error");
+            }
+            // Disappear wavy mouth and reset back to normal smiling mouth on click/focus
+            const remainingErrors = document.querySelectorAll(".field-group.has-error").length > 0;
+            if (!remainingErrors) {
+                clearStageErrorCompletely();
+            }
+        };
+
+        input.addEventListener("click", clearCurrentFieldError);
+        input.addEventListener("focus", clearCurrentFieldError);
+        input.addEventListener("input", clearCurrentFieldError);
+    });
+
+    // If server rendered an error on page load, trigger error state
+    {% if error %}
+    triggerShapeErrorShake();
+    {% endif %}
+
+    // ─── 3. Sign In / Sign Up Mode Toggle ───────────────────────────
+    const toggleBtn = document.getElementById("toggleSignupMode");
+    const formHeaderTitle = document.getElementById("formHeaderTitle");
+    const formHeaderSubtitle = document.getElementById("formHeaderSubtitle");
+    const submitBtn = document.getElementById("submitBtn");
+    const footerPrompt = document.getElementById("footerPrompt");
+    let isSignup = false;
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener("click", () => {
+            isSignup = !isSignup;
+            if (isSignup) {
+                if (loginForm) loginForm.classList.add("mode-signup");
+                formHeaderTitle.textContent = "Create your free account";
+                formHeaderSubtitle.textContent = "Get started with personalized AI tutoring in seconds";
+                submitBtn.innerHTML = `Join Prashiksha <i data-lucide="arrow-right" style="width: 16px; height: 16px;"></i>`;
+                footerPrompt.textContent = "Already have an account?";
+                toggleBtn.textContent = "Sign in here";
+            } else {
+                if (loginForm) loginForm.classList.remove("mode-signup");
+                formHeaderTitle.textContent = "Sign in to your account";
+                formHeaderSubtitle.textContent = "Continue your learning journey";
+                submitBtn.innerHTML = `Start Learning <i data-lucide="arrow-right" style="width: 16px; height: 16px;"></i>`;
+                footerPrompt.textContent = "New to Prashiksha?";
+                toggleBtn.textContent = "Create a free account";
+            }
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        });
+    }
+
+    // ─── 4. Quotes Rotation ─────────────────────────────────────────
+    const QUOTES = [
+        { text: "Education is the most powerful weapon which you can use to change the world.", author: "Nelson Mandela" },
+        { text: "The beautiful thing about learning is that no one can take it away from you.", author: "B.B. King" },
+        { text: "An investment in knowledge pays the best interest.", author: "Benjamin Franklin" },
+        { text: "Live as if you were to die tomorrow. Learn as if you were to live forever.", author: "Mahatma Gandhi" },
+        { text: "The more that you read, the more things you will know.", author: "Dr. Seuss" },
+        { text: "Education is not the filling of a pail, but the lighting of a fire.", author: "W.B. Yeats" },
+        { text: "The expert in anything was once a beginner.", author: "Helen Hayes" }
+    ];
+
+    let quoteIndex = 0;
+    const quoteText = document.getElementById("quoteText");
+    const quoteAuthor = document.getElementById("quoteAuthor");
+    const quoteProgress = document.getElementById("quoteProgress");
+
+    function rotateQuote() {
+        if (!quoteText || !quoteAuthor || !quoteProgress) return;
+        quoteText.classList.remove("quote-in");
+        quoteText.classList.add("quote-out");
+        quoteAuthor.classList.remove("quote-in");
+        quoteAuthor.classList.add("quote-out");
+
+        setTimeout(() => {
+            quoteIndex = (quoteIndex + 1) % QUOTES.length;
+            quoteText.textContent = `"${QUOTES[quoteIndex].text}"`;
+            quoteAuthor.textContent = `— ${QUOTES[quoteIndex].author}`;
+            
+            quoteText.classList.remove("quote-out");
+            quoteText.classList.add("quote-in");
+            quoteAuthor.classList.remove("quote-out");
+            quoteAuthor.classList.add("quote-in");
+
+            quoteProgress.style.animation = 'none';
+            quoteProgress.offsetHeight; // trigger reflow
+            quoteProgress.style.animation = 'quoteProgress 4s linear forwards';
+        }, 420);
+    }
+
+    if (quoteProgress) {
+        quoteProgress.style.animation = 'quoteProgress 4s linear forwards';
+        setInterval(rotateQuote, 4500);
+    }
+
+    // Initialize Lucide icons
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+</script>
 {% endblock %}

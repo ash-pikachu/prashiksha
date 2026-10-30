@@ -1,45 +1,207 @@
 {% extends "app_shell.html" %}
 {% block title %}Learn | Prashiksha{% endblock %}
+{% block content_class %}learn-page-content{% if state.response_type == 'roadmap' %} is-roadmap-mode{% endif %}{% endblock %}
 {% block content %}
 <section class="learn-head compact-head">
     <div class="head-left">
-        <span class="eyebrow font-small">{{ state.response_type }} mode</span>
-        <h1 class="font-medium">{{ state.topic }}</h1>
+        <span class="eyebrow font-small">
+            {% if state.response_type == 'explanation' %}
+                Deep Learning Mode
+            {% elif state.response_type == 'roadmap' %}
+                Roadmap Mode
+            {% elif state.response_type == 'qa' %}
+                Question & Answer Mode
+            {% elif state.response_type == 'practice' %}
+                Practice Mode
+            {% elif state.response_type == 'summary' %}
+                Summary Mode
+            {% else %}
+                {{ state.response_type }} Mode
+            {% endif %}
+        </span>
+        <h1 class="font-medium">
+            {% if state.response_type == 'explanation' and state.current_roadmap_step is not none and state.roadmap_data and state.roadmap_data.steps and state.current_roadmap_step < state.roadmap_data.steps|length %}
+                {{ state.topic }}: {{ state.roadmap_data.steps[state.current_roadmap_step].title }}
+            {% else %}
+                {{ state.topic }}
+            {% endif %}
+        </h1>
     </div>
     <div class="head-actions">
+        {% if state.roadmap_data and state.response_type == 'explanation' %}
+            <form method="post" action="/api/roadmap/view" style="display: inline;">
+                <button class="ghost-btn" id="viewRoadmapHeaderBtn" type="submit" title="Return to Visual Roadmap">
+                    <i data-lucide="map"></i> Roadmap
+                </button>
+            </form>
+        {% endif %}
         <button class="ghost-btn" id="quizStart"><i data-lucide="cards"></i> Flashcards</button>
         <a class="ghost-link" href="{{ url_for('journey') }}"><i data-lucide="flag"></i> End Session</a>
     </div>
 </section>
 
-{% if state.roadmap_data %}
-<section class="roadmap-box" id="roadmapBox">
-    {% set steps = state.roadmap_data.get("steps", []) %}
-    <div>
-        <strong>Roadmap Progress</strong>
-        <span>Step {{ state.current_roadmap_step + 1 }} of {{ steps|length }}</span>
+{% if state.response_type == 'roadmap' %}
+<section class="roadmap-wrapper" id="roadmapWrapper">
+    <div class="roadmap-panel" id="roadmapPanel">
+        <div class="roadmap-panel-header">
+            <div class="roadmap-header-info">
+                <div class="roadmap-title-row">
+                    <span class="roadmap-badge-pill"><i data-lucide="map"></i> Interactive Learning Map</span>
+                    <span class="roadmap-step-counter" id="roadmapStepCounter">
+                        {% if state.roadmap_data and state.roadmap_data.steps %}
+                            {% set completed_count = (state.completed_milestones or [])|length %}
+                            {{ completed_count }} of {{ state.roadmap_data.steps|length }} Milestones Completed
+                        {% else %}
+                            Loading Learning Path...
+                        {% endif %}
+                    </span>
+                </div>
+                <h3 class="roadmap-main-title">How AI will teach: {{ state.topic }}</h3>
+                <p class="roadmap-hint-text">
+                    <i data-lucide="sparkles"></i>
+                    Bite-sized portion taught &rarr; Flashcard Check (score &ge;70% to pass) &rarr; Next milestone. <strong>Click any topic below to start!</strong>
+                </p>
+            </div>
+            <div class="roadmap-header-actions">
+                <button class="ghost-btn toggle-map-btn" id="toggleMapBtn" type="button" title="Toggle map view">
+                    <i data-lucide="chevron-up" id="toggleMapIcon"></i>
+                    <span id="toggleMapText">Hide Map</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="roadmap-meter-box">
+            {% set completed_count = (state.completed_milestones or [])|length %}
+            {% set total_steps = state.roadmap_data.steps|length if state.roadmap_data and state.roadmap_data.steps else 1 %}
+            <div class="meter"><span id="roadmapProgressBar" style="width: {{ (completed_count / total_steps * 100)|round }}%"></span></div>
+        </div>
+
+        <div class="roadmap-carousel-wrapper">
+            <button class="roadmap-nav-arrow arrow-left" id="roadmapScrollLeft" type="button" aria-label="Scroll left" title="Scroll left">
+                <i data-lucide="chevron-left"></i>
+            </button>
+            <div class="roadmap-map-scroller" id="roadmapMapScroller">
+                <div class="roadmap-nodes-container" id="roadmapNodesContainer">
+                    {% if state.roadmap_data and state.roadmap_data.steps %}
+                        {% set current_step = state.current_roadmap_step %}
+                        {% set completed_list = state.completed_milestones or [] %}
+                        {% for step in state.roadmap_data.steps %}
+                            {% set is_completed = loop.index0 in completed_list %}
+                            {% set is_active = (current_step is not none and loop.index0 == current_step) and not is_completed %}
+                            <div class="roadmap-node-card {% if is_completed %}is-completed{% elif is_active %}is-active{% else %}is-upcoming{% endif %}"
+                                 data-step-idx="{{ loop.index0 }}">
+                                <div class="node-top-bar">
+                                    <span class="node-number">Milestone {{ step.step }}</span>
+                                    {% if step.duration %}<span class="node-duration"><i data-lucide="clock"></i> {{ step.duration }}</span>{% endif %}
+                                </div>
+                                <h4 class="node-title">{{ step.title }}</h4>
+                                <div class="node-desc-wrap">
+                                    <p class="node-desc">
+                                        {{ step.content }}
+                                        <button class="node-more-btn" type="button" data-step-idx="{{ loop.index0 }}">... More</button>
+                                    </p>
+                                    <div class="node-brief-drawer" id="nodeBriefDrawer-{{ loop.index0 }}" style="display: none;">
+                                        <div class="brief-drawer-title">
+                                            <i data-lucide="list-checks"></i> What AI will explain in this step:
+                                        </div>
+                                        <ul class="brief-points-list">
+                                            {% if step.what_will_be_explained %}
+                                                {% for pt in step.what_will_be_explained %}
+                                                    <li>{{ pt }}</li>
+                                                {% endfor %}
+                                            {% else %}
+                                                <li>Core concepts, definitions, and scope of {{ step.title }}</li>
+                                                <li>Intuitive real-world analogy and how it works</li>
+                                                <li>Critical rules and checkpoints for the 70% flashcard test</li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <div class="node-sequence-flow">
+                                    <span class="flow-pill"><i data-lucide="book-open"></i> Deep Lesson</span>
+                                    <i data-lucide="arrow-right" class="flow-arrow"></i>
+                                    <span class="flow-pill flow-quiz"><i data-lucide="cards"></i> Quiz (&ge;70% to pass)</span>
+                                </div>
+
+                                <div class="node-action-footer">
+                                    {% if is_completed %}
+                                        <a class="node-jump-btn completed" href="/roadmap/jump/{{ loop.index0 }}">
+                                            <i data-lucide="check-circle-2"></i> Review (Completed &ge;70%)
+                                        </a>
+                                    {% elif is_active %}
+                                        <a class="node-jump-btn active" href="/roadmap/jump/{{ loop.index0 }}">
+                                            <i data-lucide="sparkles"></i> Continue Deep Learning
+                                        </a>
+                                    {% else %}
+                                        <a class="node-jump-btn" href="/roadmap/jump/{{ loop.index0 }}">
+                                            <i data-lucide="compass"></i> Start Deep Learning
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if not loop.last %}
+                                <div class="roadmap-connector">
+                                    <div class="connector-line"></div>
+                                    <div class="connector-checkpoint" title="Flashcard Checkpoint">
+                                        <i data-lucide="cards"></i>
+                                    </div>
+                                    <div class="connector-line"></div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <div class="roadmap-loading-state">
+                            <i data-lucide="loader"></i>
+                            <span>Generating your visual learning path...</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <button class="roadmap-nav-arrow arrow-right" id="roadmapScrollRight" type="button" aria-label="Scroll right" title="Scroll right">
+                <i data-lucide="chevron-right"></i>
+            </button>
+        </div>
     </div>
-    <div class="meter"><span style="width: {{ (state.current_roadmap_step / (steps|length if steps else 1) * 100)|round }}%"></span></div>
-    {% if state.current_roadmap_step < steps|length %}
-        <button class="secondary-btn" id="completeRoadmap">Complete: {{ steps[state.current_roadmap_step].title }}</button>
-    {% endif %}
 </section>
 {% endif %}
 
+{% if state.response_type == 'qa' %}
+<section class="qa-quick-strip" id="qaQuickStrip">
+    <div class="qa-strip-inner">
+        <span class="qa-strip-title"><i data-lucide="help-circle"></i> Quick Ask:</span>
+        <div class="qa-chips-row">
+            <button type="button" class="qa-prompt-chip" data-q="What are the essential core principles and foundations of {{ state.topic }}?">
+                <i data-lucide="sparkles"></i> Core Principles
+            </button>
+            <button type="button" class="qa-prompt-chip" data-q="How does {{ state.topic }} work step-by-step with a clear real-world example?">
+                <i data-lucide="play-circle"></i> Real-World Example
+            </button>
+            <button type="button" class="qa-prompt-chip" data-q="What are the most dangerous pitfalls and common mistakes when studying {{ state.topic }}?">
+                <i data-lucide="alert-triangle"></i> Common Pitfalls
+            </button>
+            <button type="button" class="qa-prompt-chip" data-q="How is {{ state.topic }} practically applied in industry and modern systems?">
+                <i data-lucide="cpu"></i> Industry Applications
+            </button>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% if state.response_type != 'roadmap' %}
 <section class="chat-window" id="chatWindow">
     {% for msg in state.chat_history %}
         <article class="message {{ msg.role }}">{{ msg.content }}</article>
     {% endfor %}
 </section>
-<button class="selection-note-btn" id="selectionNoteBtn" type="button">
-    <i data-lucide="notebook-pen"></i>
-    Save to Notes
-</button>
 
 <form class="chat-form" id="chatForm">
-    <input id="chatInput" type="text" placeholder="Ask a follow-up, request an example, or type 'test me'..." autocomplete="off">
+    <input id="chatInput" type="text"
+           placeholder="{% if state.response_type == 'qa' %}Ask any specific question about {{ state.topic }}...{% elif state.response_type == 'practice' %}Type your attempt or ask for a hint on any problem...{% else %}Ask a follow-up, request an example, or type 'test me'...{% endif %}"
+           autocomplete="off">
     <button class="primary-btn" type="submit"><i data-lucide="send"></i> Send</button>
 </form>
+{% endif %}
 
 <dialog class="quiz-dialog" id="quizDialog">
     <div class="quiz-head">

@@ -1,62 +1,205 @@
 {% extends "app_shell.html" %}
-{% block title %}Notes | Prashiksha{% endblock %}
+{% block title %}Study Notes | Prashiksha{% endblock %}
 {% block content %}
-<section class="page-head notes-head">
-    <div>
-        <p class="eyebrow">Study Notes</p>
-        <h1>Your saved notes</h1>
-        <p class="page-copy">Create notes manually or save selected text from Deep Explanation without losing your lesson.</p>
-    </div>
-    <a class="ghost-link" href="{{ back_url }}"><i data-lucide="arrow-left"></i> Back to reading</a>
-</section>
-
-{% if error %}<div class="alert">{{ error }}</div>{% endif %}
-
-<section class="notes-layout">
-    <form method="post" action="{{ url_for('notes', back=back_url) }}" class="note-editor">
-        <div class="note-editor-head">
-            <i data-lucide="square-pen"></i>
-            <h2>Create a new note</h2>
-        </div>
-        <label>
-            <span>Topic / title</span>
-            <input name="title" type="text" placeholder="Photosynthesis - Chlorophyll" value="{{ state.topic or '' }}" required>
-        </label>
-        <label>
-            <span>Content</span>
-            <textarea name="content" placeholder="Type or paste your note here..." required></textarea>
-        </label>
-        <button class="primary-btn" type="submit"><i data-lucide="save"></i> Save Note</button>
-    </form>
-
-    <div class="notes-list">
-        {% if notes %}
-            {% for note in notes %}
-                <article class="note-card">
-                    <div class="note-card-top">
-                        <div>
-                            <p class="eyebrow">{{ note.topic }}</p>
-                            <h2>{{ note.title }}</h2>
-                            <small>{{ note.updated_at or note.created_at }}</small>
-                        </div>
-                        <form method="post" action="{{ url_for('delete_note', note_id=note.id, back=back_url) }}">
-                            <button class="icon-btn danger" type="submit" title="Delete note"><i data-lucide="trash-2"></i></button>
-                        </form>
-                    </div>
-                    <form method="post" action="{{ url_for('edit_note', note_id=note.id, back=back_url) }}" class="note-edit-form">
-                        <input name="title" value="{{ note.title }}" aria-label="Note title">
-                        <textarea name="content" aria-label="Note content">{{ note.content }}</textarea>
-                        <button class="secondary-btn" type="submit"><i data-lucide="check"></i> Update</button>
-                    </form>
-                </article>
-            {% endfor %}
-        {% else %}
-            <div class="empty-notes">
-                <i data-lucide="notebook-tabs"></i>
-                <h2>No notes yet</h2>
-                <p>Select text from Deep Explanation or create your first note here.</p>
+<section class="notes-page-container">
+    <!-- Header -->
+    <header class="notes-page-header">
+        <div class="notes-header-left">
+            <div class="notes-header-eyebrow">
+                <i data-lucide="book-marked" style="width: 14px; height: 14px;"></i>
+                <span>Study Journal</span>
+                <span class="notes-count-badge" id="pageNotesCountBadge">{{ notes|length if notes else 0 }} notes</span>
             </div>
-        {% endif %}
+            <h1>My Knowledge Notes</h1>
+            <p class="notes-header-copy">Capture, organize, and review your key learnings, formulas, and insights as you study.</p>
+        </div>
+        <div class="notes-header-actions">
+            <a class="ghost-link" href="{{ back_url }}">
+                <i data-lucide="arrow-left" style="width: 16px; height: 16px;"></i>
+                <span>Back to Lesson</span>
+            </a>
+            <button class="primary-btn" id="focusComposerBtn" type="button" style="gap: 8px;">
+                <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+                <span>Write Note</span>
+            </button>
+        </div>
+    </header>
+
+    {% if error %}<div class="alert" style="margin-bottom: 20px;">{{ error }}</div>{% endif %}
+
+    <!-- Modern Notes Layout: Composer & Grid -->
+    <div class="notes-main-grid">
+        <!-- Left: Note Composer Card -->
+        <aside class="note-composer-wrapper">
+            <form method="post" action="{{ url_for('notes', back=back_url) }}" class="note-composer-card" id="mainNoteComposer">
+                <input type="hidden" name="category" id="composerCategoryInput" value="Concept">
+                
+                <div class="composer-header">
+                    <div class="composer-title-row">
+                        <div class="composer-icon">
+                            <i data-lucide="square-pen" style="width: 18px; height: 18px;"></i>
+                        </div>
+                        <h3>Create New Note</h3>
+                    </div>
+                    <span class="composer-topic-pill">{{ state.topic or 'General' }}</span>
+                </div>
+
+                <!-- Topic & Title Inputs -->
+                <div class="composer-inputs-group">
+                    <div class="composer-field">
+                        <label for="composerTitle">Title</label>
+                        <input id="composerTitle" name="title" type="text" placeholder="e.g., Gradient Descent vs Normal Equation" value="" required>
+                    </div>
+                    <div class="composer-field">
+                        <label for="composerTopic">Topic</label>
+                        <input id="composerTopic" name="topic" type="text" placeholder="Topic name" value="{{ state.topic or 'General' }}">
+                    </div>
+                </div>
+
+                <!-- Category Chips Selection -->
+                <div class="composer-field">
+                    <label>Category</label>
+                    <div class="category-chips-selector" id="categoryChipsSelector">
+                        <button type="button" class="cat-chip is-active" data-cat="Concept">📌 Concept</button>
+                        <button type="button" class="cat-chip" data-cat="Insight">💡 Insight</button>
+                        <button type="button" class="cat-chip" data-cat="Summary">📝 Summary</button>
+                        <button type="button" class="cat-chip" data-cat="Formula">⚡ Formula</button>
+                        <button type="button" class="cat-chip" data-cat="Question">❓ Question</button>
+                        <button type="button" class="cat-chip" data-cat="Watch Out">⚠️ Watch Out</button>
+                    </div>
+                </div>
+
+                <!-- Formatting Toolbar -->
+                <div class="composer-editor-wrap">
+                    <div class="composer-toolbar">
+                        <button type="button" class="fmt-btn" data-fmt="bold" title="Bold (**text**)"><strong>B</strong></button>
+                        <button type="button" class="fmt-btn" data-fmt="italic" title="Italic (*text*)"><em>I</em></button>
+                        <button type="button" class="fmt-btn" data-fmt="heading" title="Heading (### text)">H</button>
+                        <button type="button" class="fmt-btn" data-fmt="bullet" title="Bullet List (- item)">• List</button>
+                        <button type="button" class="fmt-btn" data-fmt="code" title="Code snippet (`code`)">&lt;/&gt;</button>
+                        <button type="button" class="fmt-btn" data-fmt="quote" title="Quote block (&gt; text)">❝</button>
+                    </div>
+                    <textarea id="composerContent" name="content" placeholder="Type or paste your note here... Use markdown or the buttons above to format." required rows="6"></textarea>
+                </div>
+
+                <div class="composer-footer">
+                    <div class="composer-meta-hints">
+                        <span class="keyboard-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> to save</span>
+                        <span class="word-counter" id="composerWordCount">0 words</span>
+                    </div>
+                    <button class="primary-btn" type="submit" style="gap: 8px;">
+                        <i data-lucide="bookmark-plus" style="width: 16px; height: 16px;"></i>
+                        <span>Save Note</span>
+                    </button>
+                </div>
+            </form>
+        </aside>
+
+        <!-- Right: Notes Collection & Filters -->
+        <main class="notes-content-area">
+            <!-- Search & Filter Controls -->
+            <div class="notes-filter-bar">
+                <div class="notes-search-box">
+                    <i data-lucide="search" style="width: 17px; height: 17px;"></i>
+                    <input type="text" id="notesSearchInput" placeholder="Search by title, topic, or content..." autocomplete="off">
+                    <button type="button" id="clearNotesSearch" class="clear-search-btn" style="display: none;">
+                        <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                    </button>
+                </div>
+
+                <div class="notes-category-filters" id="notesCategoryFilters">
+                    <button type="button" class="filter-pill is-active" data-filter="all">All Notes</button>
+                    <button type="button" class="filter-pill" data-filter="Concept">📌 Concepts</button>
+                    <button type="button" class="filter-pill" data-filter="Insight">💡 Insights</button>
+                    <button type="button" class="filter-pill" data-filter="Summary">📝 Summaries</button>
+                    <button type="button" class="filter-pill" data-filter="Formula">⚡ Formulas</button>
+                    <button type="button" class="filter-pill" data-filter="Question">❓ Questions</button>
+                </div>
+            </div>
+
+            <!-- Notes List / Cards Grid -->
+            <div class="notes-cards-grid" id="notesCardsGrid">
+                {% if notes and notes|length > 0 %}
+                    {% for note in notes %}
+                        <article class="modern-note-card cat-{{ (note.category or 'Concept')|lower|replace(' ', '-') }}"
+                                 data-id="{{ note.id }}"
+                                 data-title="{{ note.title|lower }}"
+                                 data-topic="{{ (note.topic or '')|lower }}"
+                                 data-category="{{ note.category or 'Concept' }}"
+                                 data-content="{{ note.content|lower }}">
+                            
+                            <!-- Card View Mode -->
+                            <div class="note-card-view-mode">
+                                <div class="note-card-header">
+                                    <div class="note-pills-row">
+                                        <span class="note-topic-tag">{{ note.topic or 'General' }}</span>
+                                        <span class="note-cat-tag cat-badge-{{ (note.category or 'Concept')|lower|replace(' ', '-') }}">
+                                            {{ note.category or 'Concept' }}
+                                        </span>
+                                    </div>
+                                    <div class="note-card-actions">
+                                        <button type="button" class="note-icon-action copy-note-btn" title="Copy to clipboard" data-copy="{{ note.content }}">
+                                            <i data-lucide="copy" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                        <button type="button" class="note-icon-action edit-note-toggle-btn" title="Edit note">
+                                            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                                        </button>
+                                        <form method="post" action="{{ url_for('delete_note', note_id=note.id, back=back_url) }}" style="display: inline;" onsubmit="return confirm('Delete this note?');">
+                                            <button type="submit" class="note-icon-action danger" title="Delete note">
+                                                <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                <h3 class="note-card-title">{{ note.title }}</h3>
+                                <div class="note-card-content">{{ note.content }}</div>
+
+                                <div class="note-card-footer">
+                                    <div class="note-footer-time">
+                                        <i data-lucide="calendar" style="width: 13px; height: 13px;"></i>
+                                        <span>{{ note.updated_at or note.created_at }}</span>
+                                    </div>
+                                    <span class="note-footer-len">{{ note.content|length }} chars</span>
+                                </div>
+                            </div>
+
+                            <!-- Card Edit Mode (Initially hidden) -->
+                            <form method="post" action="{{ url_for('edit_note', note_id=note.id, back=back_url) }}" class="note-card-edit-form" style="display: none;">
+                                <div class="edit-form-header">
+                                    <span class="edit-title-tag">Editing Note</span>
+                                    <select name="category" class="edit-cat-select" aria-label="Category">
+                                        <option value="Concept" {% if note.category == 'Concept' %}selected{% endif %}>📌 Concept</option>
+                                        <option value="Insight" {% if note.category == 'Insight' %}selected{% endif %}>💡 Insight</option>
+                                        <option value="Summary" {% if note.category == 'Summary' %}selected{% endif %}>📝 Summary</option>
+                                        <option value="Formula" {% if note.category == 'Formula' %}selected{% endif %}>⚡ Formula</option>
+                                        <option value="Question" {% if note.category == 'Question' %}selected{% endif %}>❓ Question</option>
+                                        <option value="Watch Out" {% if note.category == 'Watch Out' %}selected{% endif %}>⚠️ Watch Out</option>
+                                    </select>
+                                </div>
+                                <input name="title" value="{{ note.title }}" class="edit-input-title" placeholder="Note title" required>
+                                <textarea name="content" class="edit-textarea-content" rows="4" required>{{ note.content }}</textarea>
+                                <div class="edit-actions-row">
+                                    <button type="button" class="ghost-btn cancel-edit-btn" style="padding: 6px 14px; font-size: 13px;">Cancel</button>
+                                    <button type="submit" class="primary-btn save-edit-btn" style="padding: 6px 16px; font-size: 13px; gap: 6px;">
+                                        <i data-lucide="check" style="width: 14px; height: 14px;"></i>
+                                        <span>Save Changes</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </article>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-notes-state" id="pageEmptyNotesState">
+                        <div class="empty-notes-icon">
+                            <i data-lucide="notebook-tabs" style="width: 38px; height: 38px;"></i>
+                        </div>
+                        <h3>No notes saved yet</h3>
+                        <p>Write your first note on the left or highlight any lesson text during your Deep Explanation sessions to save it instantly.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </main>
     </div>
 </section>
 {% endblock %}
